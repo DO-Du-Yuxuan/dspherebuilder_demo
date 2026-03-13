@@ -9,6 +9,7 @@ import DashboardPage from './pages/Dashboard/DashboardPage';
 import OverviewPage from './pages/Overview/OverviewPage';
 import EditorPage from './pages/Editor/EditorPage';
 import QuotationPage from './pages/QuotationPage';
+import SettlementPage from './pages/Settlement/SettlementPage';
 import { Toaster } from 'sonner';
 import { OrderVersion } from './types';
 import { INITIAL_MOCK_VERSIONS } from './mock';
@@ -88,6 +89,7 @@ export default function App() {
           } 
         />
         <Route path="/quotation" element={<QuotationPage />} />
+        <Route path="/settlement" element={<SettlementPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </>
