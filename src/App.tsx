@@ -5,8 +5,9 @@
 
 import React, { useState } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
-import OverviewPage from './pages/Overview';
-import EditorPage from './pages/Editor';
+import DashboardPage from './pages/Dashboard/DashboardPage';
+import OverviewPage from './pages/Overview/OverviewPage';
+import EditorPage from './pages/Editor/EditorPage';
 import { OrderVersion } from './types';
 import { INITIAL_MOCK_VERSIONS } from './mock';
 
@@ -60,6 +61,7 @@ export default function App() {
 
   return (
     <Routes>
+      <Route path="/" element={<DashboardPage />} />
       <Route 
         path="/overview" 
         element={
@@ -81,8 +83,7 @@ export default function App() {
           />
         } 
       />
-      <Route path="/" element={<Navigate to="/overview" replace />} />
-      <Route path="*" element={<Navigate to="/overview" replace />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }
