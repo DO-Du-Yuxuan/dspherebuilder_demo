@@ -1,0 +1,5 @@
+{
+  "name": "builder端方案编辑与版本发布系统(中保真原型)",
+  "description": "一个用于管理设计方案版本、编辑页面注释并发布给客户的中保真原型系统。",
+  "requestFramePermissions": []
+}
