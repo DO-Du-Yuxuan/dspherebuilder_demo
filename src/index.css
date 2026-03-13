@@ -1,0 +1,36 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "HonorSans", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-title: "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+
+@layer base {
+  body {
+    @apply font-sans text-[#0A0A0A] bg-white;
+  }
+  
+  h1 {
+    @apply font-title font-[900] text-[48px] text-[#0A0A0A];
+  }
+  
+  h2 {
+    @apply font-title font-[900] text-[30px] text-[#0A0A0A];
+  }
+}
+
+/* Custom Scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #E5E7EB;
+  border-radius: 10px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #D1D5DB;
+}

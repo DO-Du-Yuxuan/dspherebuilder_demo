@@ -25,9 +25,14 @@ export default function EditorPage({
 
   if (!version) {
     return (
-      <div className="min-h-screen bg-slate-50 p-8 font-sans flex flex-col items-center justify-center">
-        <h2 className="text-xl font-bold text-slate-800 mb-4">找不到该版本</h2>
-        <button onClick={() => navigate('/overview')} className="px-6 py-2 bg-indigo-600 text-white rounded-lg">返回方案列表</button>
+      <div className="min-h-screen bg-white p-6 font-sans flex flex-col items-center justify-center">
+        <h2 className="text-[30px] font-[900] text-[#0A0A0A] mb-4">找不到该版本</h2>
+        <button
+          onClick={() => navigate('/overview')}
+          className="px-8 py-4 bg-[#EF6B00] text-white rounded-[16px] text-[16px] font-[700] hover:bg-[#CC5B00] transition-colors"
+        >
+          返回方案列表
+        </button>
       </div>
     );
   }
@@ -44,9 +49,14 @@ export default function EditorPage({
 
   if (!page) {
     return (
-      <div className="min-h-screen bg-slate-50 p-8 font-sans flex flex-col items-center justify-center">
-        <h2 className="text-xl font-bold text-slate-800 mb-4">该版本暂无页面</h2>
-        <button onClick={onBack} className="px-6 py-2 bg-indigo-600 text-white rounded-lg">返回方案列表</button>
+      <div className="min-h-screen bg-white p-6 font-sans flex flex-col items-center justify-center">
+        <h2 className="text-[30px] font-[900] text-[#0A0A0A] mb-4">该版本暂无页面</h2>
+        <button
+          onClick={onBack}
+          className="px-8 py-4 bg-[#EF6B00] text-white rounded-[16px] text-[16px] font-[700] hover:bg-[#CC5B00] transition-colors"
+        >
+          返回方案列表
+        </button>
       </div>
     );
   }
@@ -188,7 +198,7 @@ export default function EditorPage({
           key={`line-annotation-${anno.id}`}
           d={path}
           fill="none"
-          stroke="#334155"
+          stroke="#6B7280"
           strokeWidth={isHovered ? "2" : "1"}
           opacity={isHovered ? 0.8 : 0.2}
           style={{ transition: 'opacity 0.2s ease' }}
@@ -217,7 +227,7 @@ export default function EditorPage({
           key={`line-comment-${comment.id}`}
           d={path}
           fill="none"
-          stroke="#10b981"
+          stroke="#4887FF"
           strokeWidth={isHovered ? "2" : "1"}
           opacity={isHovered ? 0.8 : 0.2}
           style={{ transition: 'opacity 0.2s ease' }}
@@ -229,22 +239,18 @@ export default function EditorPage({
   }, [page.annotations, page.comments, redrawTrigger, hoveredAnnotationId]);
 
   return (
-    <div className="h-screen w-screen flex flex-col bg-[#fbfbfd] font-sans overflow-hidden">
-      {/* --- Ambient Background Gradients --- */}
-      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-indigo-200/40 blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-purple-200/40 blur-[120px] pointer-events-none" />
-
+    <div className="h-screen w-screen flex flex-col bg-white font-sans overflow-hidden">
       {/* --- Top Bar --- */}
-      <div className="h-16 bg-white/80 backdrop-blur-xl border-b border-slate-200 flex items-center justify-between px-6 flex-shrink-0 z-20 shadow-sm relative">
+      <div className="h-16 bg-white border-b border-[#E5E7EB] flex items-center justify-between px-6 flex-shrink-0 z-20 shadow-sm relative">
         <div className="flex items-center gap-4">
-          <button onClick={onBack} className="p-2 -ml-2 text-slate-500 hover:bg-slate-100 rounded-lg transition-colors" title="返回版本列表">
+          <button onClick={onBack} className="p-2 -ml-2 text-[#6B7280] hover:bg-[#E5E7EB]/30 rounded-[12px] transition-colors" title="返回版本列表">
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div className="flex flex-col">
             <div className="flex items-center gap-2">
-              <span className="font-bold text-slate-800 tracking-tight">{version.name}</span>
+              <span className="font-[900] text-[#0A0A0A] tracking-tight">{version.name}</span>
               <span className={cn(
-                "px-2 py-0.5 rounded text-[10px] font-bold tracking-wider",
+                "px-2 py-0.5 rounded-[12px] text-[12px] font-[500] tracking-wider",
                 readOnly ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"
               )}>
                 {readOnly ? '已发布 (只读)' : '编辑中'}
@@ -254,16 +260,16 @@ export default function EditorPage({
         </div>
 
         {/* Page Switcher */}
-        <div className="flex items-center bg-slate-100/80 p-1 rounded-xl border border-slate-200/50">
+        <div className="flex items-center bg-[#E5E7EB]/20 p-1 rounded-[16px] border border-[#E5E7EB]">
           {version.pages.map((p, idx) => (
             <button
               key={p.pageId}
               onClick={() => setCurrentPageIndex(idx)}
               className={cn(
-                "px-4 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-1.5",
+                "px-4 py-1.5 rounded-[12px] text-[16px] font-[400] transition-all flex items-center gap-1.5",
                 currentPageIndex === idx
-                  ? "bg-white text-indigo-600 shadow-sm border border-slate-200/50"
-                  : "text-slate-500 hover:text-slate-700 hover:bg-slate-200/50"
+                  ? "bg-white text-[#EF6B00] shadow-sm border border-[#E5E7EB] font-[700]"
+                  : "text-[#6B7280] hover:text-[#0A0A0A] hover:bg-[#E5E7EB]/30"
               )}
             >
               <span>P{idx + 1}</span>
@@ -271,10 +277,10 @@ export default function EditorPage({
           ))}
           {!readOnly && (
             <>
-              <div className="w-px h-4 bg-slate-300 mx-1"></div>
+              <div className="w-px h-4 bg-[#E5E7EB] mx-1"></div>
               <button
                 onClick={handleAddPage}
-                className="px-3 py-1.5 text-slate-400 hover:text-indigo-600 transition-colors flex items-center gap-1 text-sm font-medium" title="新增页面">
+                className="px-3 py-1.5 text-[#6B7280] hover:text-[#EF6B00] transition-colors flex items-center gap-1 text-[16px] font-[400]" title="新增页面">
                 <Plus className="w-4 h-4" /> 新页
               </button>
             </>
@@ -284,14 +290,14 @@ export default function EditorPage({
         {/* Main Actions */}
         <div className="flex items-center gap-3">
           {!readOnly && (
-            <span className="text-xs text-slate-400 font-mono mr-2 flex items-center gap-1">
+            <span className="text-[12px] text-[#6B7280] font-mono mr-2 flex items-center gap-1">
               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> 已自动保存
             </span>
           )}
           {!readOnly && (
             <button
               onClick={onPublish}
-              className="px-5 py-2 bg-gradient-to-r from-indigo-500 to-purple-500 text-white rounded-xl text-sm font-medium hover:opacity-90 transition-all flex items-center gap-2 shadow-md"
+              className="px-8 py-2 bg-[#EF6B00] text-white rounded-[16px] text-[16px] font-[700] hover:bg-[#CC5B00] transition-all flex items-center gap-2 shadow-md"
             >
               <Send className="w-4 h-4" /> 发布此版本
             </button>
@@ -309,23 +315,23 @@ export default function EditorPage({
 
         {/* Left Column: Design Annotation Edit Area */}
         <div className="w-1/4 flex flex-col gap-4 z-20">
-          <div className="flex-1 flex flex-col bg-white/80 backdrop-blur-xl rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-white/80 overflow-hidden">
-            <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+          <div className="flex-1 flex flex-col bg-white rounded-[24px] shadow-[0_12px_32px_rgba(0,0,0,0.08)] border border-[#E5E7EB] overflow-hidden">
+            <div className="p-5 border-b border-[#E5E7EB] flex justify-between items-center bg-[#E5E7EB]/10">
               <div>
-                <h2 className="font-semibold text-slate-800 tracking-wide flex items-center gap-2">
-                  <Edit3 className="w-4 h-4 text-indigo-500" /> {isLocked ? '查看' : '编辑'} 设计注释
+                <h2 className="font-[900] text-[16px] text-[#0A0A0A] tracking-wide flex items-center gap-2">
+                  <Edit3 className="w-4 h-4 text-[#EF6B00]" /> {isLocked ? '查看' : '编辑'} 设计注释
                 </h2>
-                <p className="text-[11px] text-slate-500 mt-1 uppercase tracking-wider">Design Notes</p>
+                <p className="text-[12px] text-[#6B7280] mt-1 uppercase tracking-wider font-[500]">Design Notes</p>
               </div>
               {!isLocked && (
                 <div className="flex gap-1">
                   <button
                     onClick={() => setIsAddingAnnotation(!isAddingAnnotation)}
                     className={cn(
-                      "p-2 rounded-lg transition-all text-xs font-medium flex items-center gap-1 shadow-sm border",
+                      "p-2 rounded-[12px] transition-all text-[12px] font-[500] flex items-center gap-1 shadow-sm border",
                       isAddingAnnotation
-                        ? "bg-indigo-50 text-indigo-600 border-indigo-200 ring-2 ring-indigo-500/20"
-                        : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                        ? "bg-[#EF6B00]/10 text-[#EF6B00] border-[#EF6B00]/20 ring-2 ring-[#EF6B00]/20"
+                        : "bg-white text-[#0A0A0A] border-[#E5E7EB] hover:bg-[#E5E7EB]/30"
                     )}
                     title="在图纸上打点添加注释"
                   >
@@ -346,27 +352,27 @@ export default function EditorPage({
                   onMouseEnter={() => setHoveredAnnotationId(anno.id)}
                   onMouseLeave={() => setHoveredAnnotationId(null)}
                   className={cn(
-                    "bg-white border rounded-2xl p-4 relative transition-all group",
-                    hoveredAnnotationId === anno.id ? "border-indigo-300 shadow-md ring-2 ring-indigo-500/10" : "border-slate-200 shadow-sm hover:border-indigo-200"
+                    "bg-white border rounded-[24px] p-4 relative transition-all group",
+                    hoveredAnnotationId === anno.id ? "border-[#EF6B00]/30 shadow-md ring-2 ring-[#EF6B00]/10" : "border-[#E5E7EB] shadow-sm hover:border-[#EF6B00]/20"
                   )}
                 >
-                  <div className="absolute -left-3 -top-3 w-7 h-7 bg-slate-700 text-white rounded-full flex items-center justify-center text-xs font-bold shadow-md border-2 border-white">
+                  <div className="absolute -left-3 -top-3 w-7 h-7 bg-[#0A0A0A] text-white rounded-full flex items-center justify-center text-[12px] font-[700] shadow-md border-2 border-white">
                     {getAnnotationImageIndex(anno.id)}
                   </div>
 
                   <div className="flex justify-between items-center mb-3 ml-2">
                     <div className="flex items-center gap-2">
-                      <span className="text-[11px] font-medium text-slate-400 uppercase tracking-wider">
+                      <span className="text-[12px] font-[500] text-[#6B7280] uppercase tracking-wider">
                         图纸位置
                       </span>
-                      <span className="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded font-mono">
+                      <span className="text-[12px] bg-[#E5E7EB]/30 text-[#6B7280] px-1.5 py-0.5 rounded font-sans">
                         X:{Math.round(anno.point?.x || 0)} Y:{Math.round(anno.point?.y || 0)}
                       </span>
                     </div>
                     {!isLocked && (
                       <button
                         onClick={() => deleteAnnotation(anno.id)}
-                        className="text-slate-300 hover:text-red-500 transition-colors p-1 rounded-md hover:bg-red-50"
+                        className="text-[#6B7280] hover:text-[#EF6B00] transition-colors p-1 rounded-md hover:bg-[#EF6B00]/5"
                         title="删除此注释"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -376,27 +382,27 @@ export default function EditorPage({
 
                   <div
                     className={cn(
-                      "text-sm text-slate-700 bg-slate-50/50 border border-transparent rounded-xl p-3 min-h-[5rem] transition-all",
-                      !isLocked && "cursor-text hover:border-slate-200 hover:bg-white"
+                      "text-[16px] text-[#0A0A0A] bg-[#E5E7EB]/10 border border-transparent rounded-[12px] p-3 min-h-[5rem] transition-all",
+                      !isLocked && "cursor-text hover:border-[#E5E7EB] hover:bg-white"
                     )}
                   >
                     {!isLocked ? (
                       <textarea
-                        className="w-full h-full bg-transparent outline-none resize-none"
+                        className="w-full h-full bg-transparent outline-none resize-none font-sans"
                         value={anno.content}
                         onChange={(e) => updateAnnotation(anno.id, e.target.value)}
                         placeholder="点击添加内容..."
                       />
                     ) : (
-                      anno.content || <span className="text-slate-400 italic">暂无内容</span>
+                      <div className="font-sans">{anno.content || <span className="text-[#6B7280] italic">暂无内容</span>}</div>
                     )}
                   </div>
                 </div>
               ))}
               {page.annotations.length === 0 && (
-                <div className="text-center text-slate-400 text-sm py-12 flex flex-col items-center gap-3">
-                  <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mb-2">
-                    <Edit3 className="w-5 h-5 text-slate-300" />
+                <div className="text-center text-[#6B7280] text-[16px] py-12 flex flex-col items-center gap-3">
+                  <div className="w-12 h-12 rounded-full bg-[#E5E7EB]/20 flex items-center justify-center mb-2">
+                    <Edit3 className="w-5 h-5 text-[#6B7280]" />
                   </div>
                   <p>{isLocked ? '暂无设计注释' : '点击上方按钮添加设计注释'}</p>
                 </div>
@@ -411,9 +417,9 @@ export default function EditorPage({
           onScroll={() => setRedrawTrigger(prev => prev + 1)}
         >
           {/* 1. Title Edit */}
-          <div className="flex-none bg-white/80 backdrop-blur-xl rounded-3xl p-5 md:p-6 text-center border border-white/80 shadow-[0_8px_30px_rgb(0,0,0,0.04)] group relative transition-all hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)]">
+          <div className="flex-none bg-white rounded-[24px] p-6 text-center border border-[#E5E7EB] shadow-[0_12px_32px_rgba(0,0,0,0.08)] group relative transition-all">
             {!isLocked && (
-              <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 text-xs text-indigo-500 bg-indigo-50 px-2 py-1 rounded-md flex items-center gap-1 pointer-events-none transition-opacity">
+              <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 text-[12px] text-[#EF6B00] bg-[#EF6B00]/5 px-2 py-1 rounded-md flex items-center gap-1 pointer-events-none transition-opacity font-[500]">
                 <Edit3 className="w-3 h-3" /> 点击编辑标题
               </div>
             )}
@@ -423,17 +429,17 @@ export default function EditorPage({
               onChange={(e) => !isLocked && updateCurrentPage({ ...page, title: e.target.value })}
               readOnly={isLocked}
               className={cn(
-                "w-full text-2xl md:text-3xl font-bold text-slate-800 bg-transparent border-b-2 border-transparent text-center outline-none transition-colors",
-                !isLocked && "hover:border-slate-200 focus:border-indigo-500"
+                "w-full text-[48px] font-[900] text-[#0A0A0A] bg-transparent border-b-2 border-transparent text-center outline-none transition-colors font-title",
+                !isLocked && "hover:border-[#E5E7EB] focus:border-[#EF6B00]"
               )}
               placeholder="输入页面大标题..."
             />
           </div>
 
           {/* 2. Text Edit */}
-          <div className="flex-none bg-white/80 backdrop-blur-xl rounded-3xl p-6 md:p-8 border border-white/80 shadow-[0_8px_30px_rgb(0,0,0,0.04)] group relative transition-all hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)]">
+          <div className="flex-none bg-white rounded-[24px] p-8 border border-[#E5E7EB] shadow-[0_12px_32px_rgba(0,0,0,0.08)] group relative transition-all">
             {!isLocked && (
-              <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 text-xs text-indigo-500 bg-indigo-50 px-2 py-1 rounded-md flex items-center gap-1 pointer-events-none transition-opacity">
+              <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 text-[12px] text-[#EF6B00] bg-[#EF6B00]/5 px-2 py-1 rounded-md flex items-center gap-1 pointer-events-none transition-opacity font-[500]">
                 <Edit3 className="w-3 h-3" /> 点击编辑正文
               </div>
             )}
@@ -442,8 +448,8 @@ export default function EditorPage({
               onChange={(e) => !isLocked && updateCurrentPage({ ...page, text: e.target.value })}
               readOnly={isLocked}
               className={cn(
-                "w-full text-slate-600 text-base md:text-lg leading-relaxed bg-transparent border border-transparent rounded-xl p-4 min-h-[150px] resize-none outline-none transition-all",
-                !isLocked && "hover:border-slate-200 hover:bg-slate-50 focus:border-indigo-300 focus:bg-white focus:ring-4 focus:ring-indigo-500/10"
+                "w-full text-[#6B7280] text-[16px] leading-relaxed bg-transparent border border-transparent rounded-[12px] p-4 min-h-[150px] resize-none outline-none transition-all font-sans",
+                !isLocked && "hover:border-[#E5E7EB] hover:bg-[#E5E7EB]/10 focus:border-[#EF6B00]/30 focus:bg-white focus:ring-4 focus:ring-[#EF6B00]/5"
               )}
               placeholder="输入页面描述文字..."
             />
@@ -453,8 +459,8 @@ export default function EditorPage({
           <div className="flex-1 min-h-[500px] relative flex items-center justify-center p-3 group">
             {/* Background Layer */}
             <div className={cn(
-              "absolute inset-0 bg-white/80 backdrop-blur-xl rounded-3xl border shadow-[0_8px_30px_rgb(0,0,0,0.04)] transition-all duration-300 -z-10",
-              isAddingAnnotation ? "border-indigo-300 ring-4 ring-indigo-500/20" : "border-white/80 group-hover:border-slate-200"
+              "absolute inset-0 bg-white rounded-[24px] border shadow-[0_12px_32px_rgba(0,0,0,0.08)] transition-all duration-300 -z-10",
+              isAddingAnnotation ? "border-[#EF6B00]/30 ring-4 ring-[#EF6B00]/10" : "border-[#E5E7EB] group-hover:border-[#EF6B00]/20"
             )} />
 
             {/* Image Actions */}
@@ -462,14 +468,14 @@ export default function EditorPage({
               <div className="absolute top-6 right-6 z-20 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                 <button
                   onClick={handleReplaceImage}
-                  className="px-4 py-2 bg-white/90 backdrop-blur-md border border-slate-200 rounded-xl text-sm font-medium text-slate-700 hover:text-indigo-600 hover:border-indigo-200 flex items-center gap-2 shadow-sm transition-all">
+                  className="px-6 py-2 bg-white/90 backdrop-blur-md border border-[#E5E7EB] rounded-[16px] text-[16px] font-[700] text-[#0A0A0A] hover:text-[#EF6B00] hover:border-[#EF6B00]/20 flex items-center gap-2 shadow-sm transition-all">
                   <ImageIcon className="w-4 h-4" /> 替换图纸
                 </button>
               </div>
             )}
 
             {isAddingAnnotation && (
-              <div className="absolute top-6 left-1/2 -translate-x-1/2 bg-indigo-600/90 backdrop-blur-md text-white px-5 py-2.5 rounded-full text-sm font-medium shadow-lg z-[60] pointer-events-none animate-pulse flex items-center gap-2">
+              <div className="absolute top-6 left-1/2 -translate-x-1/2 bg-[#EF6B00]/90 backdrop-blur-md text-white px-5 py-2.5 rounded-full text-[16px] font-[700] shadow-lg z-[60] pointer-events-none animate-pulse flex items-center gap-2">
                 <ImageIcon className="w-4 h-4" /> 请点击图纸上的具体位置添加注释点
               </div>
             )}
@@ -478,13 +484,13 @@ export default function EditorPage({
               ref={imageContainerRef}
               onClick={handleImageClick}
               className={cn(
-                "relative w-full h-full flex items-center justify-center rounded-2xl overflow-hidden",
+                "relative w-full h-full flex items-center justify-center rounded-[24px] overflow-hidden",
                 isAddingAnnotation ? "cursor-crosshair" : ""
               )}>
               <img
                 src={page.imageUrl}
                 alt="CAD Floor Plan"
-                className="w-full h-full object-contain bg-slate-50/50 relative z-10"
+                className="w-full h-full object-contain bg-[#E5E7EB]/10 relative z-10"
                 referrerPolicy="no-referrer"
               />
 
@@ -495,12 +501,12 @@ export default function EditorPage({
                   onMouseEnter={() => setHoveredAnnotationId(anno.id)}
                   onMouseLeave={() => setHoveredAnnotationId(null)}
                   className={cn(
-                    "absolute w-6 h-6 rounded-full border-[2.5px] border-white shadow-md -translate-x-1/2 -translate-y-1/2 flex items-center justify-center transition-transform cursor-pointer z-50",
-                    hoveredAnnotationId === anno.id ? "bg-slate-800 scale-125 z-[60] ring-4 ring-slate-500/30" : "bg-slate-700 z-50"
+                    "absolute w-7 h-7 rounded-full border-[2.5px] border-white shadow-md -translate-x-1/2 -translate-y-1/2 flex items-center justify-center transition-transform cursor-pointer z-50",
+                    hoveredAnnotationId === anno.id ? "bg-[#EF6B00] scale-125 z-[60] ring-4 ring-[#EF6B00]/30" : "bg-[#0A0A0A] z-50"
                   )}
                   style={{ left: `${anno.point?.x || 0}%`, top: `${anno.point?.y || 0}%` }}
                 >
-                  <span className="text-[10px] text-white font-bold">{getAnnotationImageIndex(anno.id)}</span>
+                  <span className="text-[12px] text-white font-[700]">{getAnnotationImageIndex(anno.id)}</span>
                 </div>
               ))}
             </div>
@@ -509,14 +515,14 @@ export default function EditorPage({
 
         {/* Right Column: Customer Feedback View Area */}
         <div className="w-1/4 flex flex-col gap-4 z-20">
-          <div className="flex-1 flex flex-col bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 overflow-hidden relative">
+          <div className="flex-1 flex flex-col bg-white rounded-[24px] shadow-[0_12px_32px_rgba(0,0,0,0.08)] border border-[#E5E7EB] overflow-hidden relative">
 
-            <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+            <div className="p-5 border-b border-[#E5E7EB] flex justify-between items-center bg-[#E5E7EB]/10">
               <div>
-                <h2 className="font-semibold text-slate-800 tracking-wide flex items-center gap-2">
-                  <MessageSquare className="w-4 h-4 text-emerald-500" /> 客户反馈参考
+                <h2 className="font-[900] text-[16px] text-[#0A0A0A] tracking-wide flex items-center gap-2">
+                  <MessageSquare className="w-4 h-4 text-[#4887FF]" /> 客户反馈参考
                 </h2>
-                <p className="text-[11px] text-slate-500 mt-1 uppercase tracking-wider">From Previous Version</p>
+                <p className="text-[12px] text-[#6B7280] mt-1 uppercase tracking-wider font-[500]">From Previous Version</p>
               </div>
             </div>
 
@@ -525,26 +531,26 @@ export default function EditorPage({
                 <div
                   key={comment.id}
                   ref={el => commentCardRefs.current[comment.id] = el}
-                  className="bg-slate-50 border border-slate-100 shadow-sm rounded-2xl p-4 relative"
+                  className="bg-white border border-[#E5E7EB] shadow-sm rounded-[24px] p-4 relative"
                 >
-                  <div className="absolute -right-3 -top-3 w-7 h-7 bg-gradient-to-br from-emerald-400 to-teal-500 text-white rounded-full flex items-center justify-center text-xs font-bold shadow-md border-2 border-white">
+                  <div className="absolute -right-3 -top-3 w-7 h-7 bg-[#4887FF] text-white rounded-full flex items-center justify-center text-[12px] font-[700] shadow-md border-2 border-white">
                     {getCommentImageIndex(comment.id)}
                   </div>
 
-                  <div className="text-[11px] font-medium text-slate-400 mb-2 uppercase tracking-wider">
+                  <div className="text-[12px] font-[500] text-[#6B7280] mb-2 uppercase tracking-wider">
                     针对: 图纸位置
                   </div>
 
-                  <div className="text-sm text-slate-700 leading-relaxed bg-white p-3 rounded-xl border border-slate-100">
+                  <div className="text-[16px] text-[#0A0A0A] leading-relaxed bg-[#E5E7EB]/10 p-3 rounded-[12px] border border-[#E5E7EB] font-sans">
                     {comment.content}
                   </div>
                 </div>
               ))}
 
               {page.comments.length === 0 && (
-                <div className="text-center text-slate-400 text-sm py-12 flex flex-col items-center gap-3">
-                  <div className="w-12 h-12 rounded-full bg-slate-50 flex items-center justify-center mb-2 shadow-sm">
-                    <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                <div className="text-center text-[#6B7280] text-[16px] py-12 flex flex-col items-center gap-3">
+                  <div className="w-12 h-12 rounded-full bg-[#E5E7EB]/20 flex items-center justify-center mb-2 shadow-sm">
+                    <CheckCircle2 className="w-5 h-5 text-[#4887FF]" />
                   </div>
                   <p>该页面暂无客户反馈记录</p>
                 </div>

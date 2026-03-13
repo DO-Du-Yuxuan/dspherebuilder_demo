@@ -7,7 +7,8 @@ import React, { useState } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import OverviewPage from './pages/Overview';
 import EditorPage from './pages/Editor';
-import { INITIAL_MOCK_VERSIONS, OrderVersion } from './types';
+import { OrderVersion } from './types';
+import { INITIAL_MOCK_VERSIONS } from './mock';
 
 export default function App() {
   const [versions, setVersions] = useState<OrderVersion[]>(INITIAL_MOCK_VERSIONS);
