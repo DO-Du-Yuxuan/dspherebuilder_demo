@@ -8,6 +8,8 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import DashboardPage from './pages/Dashboard/DashboardPage';
 import OverviewPage from './pages/Overview/OverviewPage';
 import EditorPage from './pages/Editor/EditorPage';
+import QuotationPage from './pages/QuotationPage';
+import { Toaster } from 'sonner';
 import { OrderVersion } from './types';
 import { INITIAL_MOCK_VERSIONS } from './mock';
 
@@ -60,30 +62,34 @@ export default function App() {
   };
 
   return (
-    <Routes>
-      <Route path="/" element={<DashboardPage />} />
-      <Route 
-        path="/overview" 
-        element={
-          <OverviewPage 
-            versions={versions} 
-            onPublishVersion={handlePublishVersion}
-            onCopyVersion={handleCopyVersion}
-            onCreateVersion={handleCreateVersion}
-          />
-        } 
-      />
-      <Route 
-        path="/editor/:versionId" 
-        element={
-          <EditorPage 
-            versions={versions} 
-            onUpdateVersion={handleUpdateVersion}
-            onPublishVersion={handlePublishVersion}
-          />
-        } 
-      />
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+    <>
+      <Toaster position="top-center" richColors />
+      <Routes>
+        <Route path="/" element={<DashboardPage />} />
+        <Route 
+          path="/overview" 
+          element={
+            <OverviewPage 
+              versions={versions} 
+              onPublishVersion={handlePublishVersion}
+              onCopyVersion={handleCopyVersion}
+              onCreateVersion={handleCreateVersion}
+            />
+          } 
+        />
+        <Route 
+          path="/editor/:versionId" 
+          element={
+            <EditorPage 
+              versions={versions} 
+              onUpdateVersion={handleUpdateVersion}
+              onPublishVersion={handlePublishVersion}
+            />
+          } 
+        />
+        <Route path="/quotation" element={<QuotationPage />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </>
   );
 }

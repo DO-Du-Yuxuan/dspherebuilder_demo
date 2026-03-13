@@ -1,8 +1,9 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { History, Eye, Edit3, Send, Copy, Plus } from 'lucide-react';
+import { History, Eye, Edit3, Send, Copy, Plus, FileText } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { OrderVersion } from '../../types';
+import { ROUTES } from '../../utils/constants';
 
 // 1. Overview Page
 export default function OverviewPage({
@@ -112,7 +113,15 @@ export default function OverviewPage({
                   </div>
                 </div>
 
-                <div className="flex gap-3">
+                <div className="flex gap-3 items-center">
+                  {version.status === 'published' && (
+                    <button
+                      onClick={() => navigate(ROUTES.QUOTATION)}
+                      className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-700 rounded-[12px] text-[14px] font-[700] hover:bg-emerald-100 transition-colors mr-2"
+                    >
+                      <FileText className="w-4 h-4" /> 查看结算单
+                    </button>
+                  )}
                   <button
                     onClick={() => navigate(`/editor/${version.id}`)}
                     className="p-3 text-[#6B7280] hover:text-[#EF6B00] hover:bg-[#EF6B00]/5 rounded-[12px] transition-colors"

@@ -4,4 +4,5 @@ export const ROUTES = {
   EDITOR: '/editor',
   ADMIN: '/admin',
   ADMIN_DOBLOG_MANAGE: '/admin/doblog/manage',
+  QUOTATION: '/quotation',
 };

@@ -1,0 +1,93 @@
+/* Custom styles for Quotation interface */
+@import "tailwindcss";
+
+@layer base {
+  * {
+    border-color: #E5E7EB;
+  }
+  body {
+    background-color: #FFFFFF;
+    color: #0A0A0A;
+    font-family: HonorSans, sans-serif;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  }
+}
+
+/* 设计规范自定义样式 */
+@layer utilities {
+  .shadow-card {
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.08);
+  }
+  
+  .text-primary-main {
+    color: #0A0A0A;
+  }
+  
+  .text-secondary-main {
+    color: #6B7280;
+  }
+  
+  .border-primary {
+    border-color: #E5E7EB;
+  }
+  
+  .bg-primary-orange {
+    background-color: #EF6B00;
+  }
+  
+  .bg-primary-orange-hover {
+    background-color: #CC5B00;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.3s ease-out;
+}
+
+.animate-scaleIn {
+  animation: scaleIn 0.3s ease-out;
+}
+
+@media print {
+  body {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+  
+  .print\:hidden {
+    display: none !important;
+  }
+  
+  .print\:cursor-default {
+    cursor: default !important;
+  }
+  
+  @page {
+    margin: 1cm;
+  }
+}
