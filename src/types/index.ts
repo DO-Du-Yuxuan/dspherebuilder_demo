@@ -65,3 +65,51 @@ export interface DesignOrder {
   currentVersionId?: string;
   versions: OrderVersion[];
 }
+
+export interface Project {
+  id: string;
+  name: string;
+  code: string;
+}
+
+export interface OrderItem {
+  id: string;
+  projectId: string;
+  orderNumber: string;
+  title: string;
+  status: string;
+  statusLabel: string;
+  price: string;
+  color: string;
+}
+
+export interface SettlementItem {
+  id: number;
+  epcCode: string;
+  orderType: string;
+  salesOrder: string;
+  unit: string;
+  quotationQuantity: number;
+  quotationUnitPrice: number;
+  quotationAmount: number;
+  settlementQuantity: number;
+  settlementAmount: number;
+  settlementRemark: string;
+}
+
+export interface SettlementData {
+  orderNumber: string;
+  customer: {
+    name: string;
+    address: string;
+  };
+  pricing: {
+    design: number;
+    product: number;
+    construction: number;
+    total: number;
+  };
+  designItems: SettlementItem[];
+  productItems: SettlementItem[];
+  constructionItems: SettlementItem[];
+}

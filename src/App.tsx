@@ -6,6 +6,8 @@
 import React, { useState } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import DashboardPage from './pages/Dashboard/DashboardPage';
+import ProjectSelectionPage from './pages/ProjectSelectionPage';
+import OrderSelectionPage from './pages/OrderSelectionPage';
 import OverviewPage from './pages/Overview/OverviewPage';
 import EditorPage from './pages/Editor/EditorPage';
 import QuotationPage from './pages/QuotationPage';
@@ -67,6 +69,8 @@ export default function App() {
       <Toaster position="top-center" richColors />
       <Routes>
         <Route path="/" element={<DashboardPage />} />
+        <Route path="/projects" element={<ProjectSelectionPage />} />
+        <Route path="/orders" element={<OrderSelectionPage />} />
         <Route 
           path="/overview" 
           element={

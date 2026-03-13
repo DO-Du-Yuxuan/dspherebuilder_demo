@@ -1,10 +1,12 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
-import { History, Eye, Edit3, Send, Copy, Plus, FileText, CheckCircle2, MessageSquare, Package, Hammer } from 'lucide-react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { History, Eye, Edit3, Send, Copy, Plus, FileText, CheckCircle2, MessageSquare, Package, Hammer, Home, ArrowLeftRight } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { OrderVersion } from '../../types';
 import { ROUTES } from '../../utils/constants';
 import { tokens } from '../../design-tokens';
+import { Header } from '../../components/Header';
+import { getCurrentUser, logout } from '../../utils/authUtils';
 
 // 1. Overview Page
 export default function OverviewPage({
@@ -19,12 +21,31 @@ export default function OverviewPage({
   onCreateVersion: () => void
 }) {
   const navigate = useNavigate();
+  const location = useLocation();
+  
+  const project = location.state?.project || { name: '静安·云境公寓 (示例项目)', code: 'PRJT_R-070-A-00001' };
+  const order = location.state?.order || { orderNumber: 'PSO-OD_LHJCF-00471', title: '瓷砖铺贴-公卫、次卫、厨房墙地铺贴' };
+
   const draftVersion = versions.find(v => v.status === 'draft');
   const otherVersions = versions.filter(v => v.status !== 'draft');
+  const user = getCurrentUser();
+
+  const handleLogout = () => {
+    logout();
+  };
 
   return (
-    <div className="min-h-screen bg-white px-6 py-24" style={{ fontFamily: tokens.fonts.body }}>
-      <div className="max-w-5xl mx-auto">
+    <div className="min-h-screen bg-white" style={{ fontFamily: tokens.fonts.body }}>
+      <Header 
+        projectName={project.name}
+        orderNumber={order.orderNumber}
+        userName={user.name || user.username}
+        onHomeClick={() => navigate(ROUTES.HOME)}
+        onProjectClick={() => navigate(ROUTES.PROJECTS)}
+        onLogout={handleLogout}
+      />
+
+      <div className="max-w-5xl mx-auto py-24">
         <div className="mb-[96px] flex justify-between items-center">
           <div>
             <h1 className="text-[48px] font-[900] text-[#0A0A0A] mb-2 leading-tight" style={{ fontWeight: tokens.fontWeight.h1 }}>方案管理中心</h1>
