@@ -13,11 +13,19 @@ import { getOrderById, updateOrderStatus, Order } from '../utils/orderStorage';
 // 1. Overview Page
 export default function OverviewPage({
   versions,
+  quotationVersions,
+  setQuotationVersions,
+  settlementVersions,
+  setSettlementVersions,
   onPublishVersion,
   onCopyVersion,
   onCreateVersion
 }: {
   versions: OrderVersion[],
+  quotationVersions: any[],
+  setQuotationVersions: React.Dispatch<React.SetStateAction<any[]>>,
+  settlementVersions: any[],
+  setSettlementVersions: React.Dispatch<React.SetStateAction<any[]>>,
   onPublishVersion: (id: string) => void,
   onCopyVersion: (id: string) => void,
   onCreateVersion: () => void
@@ -55,11 +63,29 @@ export default function OverviewPage({
     }
   };
 
-  const handlePublishQuotation = () => {
+  const handleCreateQuotation = () => {
+    if (quotationVersions.some(v => v.status === 'draft')) {
+      toast.error('已存在待发布的报价单草稿');
+      return;
+    }
+    const newQuotation = {
+      id: `q-${Date.now()}`,
+      name: `订购报价单 V${quotationVersions.length + 1}.0`,
+      createdAt: new Date().toLocaleString(),
+      status: 'draft',
+      totalPrice: `¥${(Math.random() * 50000 + 10000).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
+    };
+    setQuotationVersions([newQuotation, ...quotationVersions]);
+    toast.success('新建报价单成功');
+  };
+
+  const handlePublishQuotation = (id: string) => {
     if (currentOrder.status === 'S00') {
       toast.error('请先发布方案设计，再发布报价单');
       return;
     }
+
+    setQuotationVersions(prev => prev.map(v => v.id === id ? { ...v, status: 'published' } : v));
 
     if (currentOrder.status === 'S02') {
       const updated = updateOrderStatus(currentOrder.id, 'S03');
@@ -72,8 +98,36 @@ export default function OverviewPage({
     }
   };
 
+  const handleCreateSettlement = () => {
+    if (settlementVersions.some(v => v.status === 'draft')) {
+      toast.error('已存在待确认的结算单草稿');
+      return;
+    }
+    const newSettlement = {
+      id: `s-${Date.now()}`,
+      name: `完工结算单 V${settlementVersions.length + 1}.0`,
+      createdAt: new Date().toLocaleString(),
+      status: 'draft',
+      totalPrice: `¥${(Math.random() * 50000 + 10000).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
+    };
+    setSettlementVersions([newSettlement, ...settlementVersions]);
+    toast.success('新建结算单成功');
+  };
+
+  const handlePublishSettlement = (id: string) => {
+    setSettlementVersions(prev => prev.map(v => v.id === id ? { ...v, status: 'published' } : v));
+    toast.success('结算单已发布给客户');
+  };
+
   const draftVersion = versions.find(v => v.status === 'draft');
   const otherVersions = versions.filter(v => v.status !== 'draft');
+
+  const draftQuotation = quotationVersions.find(v => v.status === 'draft');
+  const otherQuotations = quotationVersions.filter(v => v.status !== 'draft');
+
+  const draftSettlement = settlementVersions.find(v => v.status === 'draft');
+  const otherSettlements = settlementVersions.filter(v => v.status !== 'draft');
+
   const user = getCurrentUser();
 
   const handleLogout = () => {
@@ -89,6 +143,9 @@ export default function OverviewPage({
   };
 
   const textColor = getDarkerColor(statusInfo.color);
+  const statusNum = parseInt(currentOrder.status.substring(1));
+  const isReadOnly = [4, 8, 12].includes(statusNum);
+  const hasPublishedQuotation = statusNum >= 6;
 
   return (
     <div className="min-h-screen bg-white" style={{ fontFamily: tokens.fonts.body }}>
@@ -126,13 +183,15 @@ export default function OverviewPage({
             </div>
             <p className="text-[#6B7280] text-[16px]">管理当前订单的所有交付版本</p>
           </div>
-          <button
-            onClick={onCreateVersion}
-            className="px-8 py-4 bg-[#EF6B00] text-white rounded-[16px] text-[16px] font-[700] hover:bg-[#CC5B00] transition-colors flex items-center gap-2 shadow-sm"
-            style={{ borderRadius: tokens.borderRadius.button, fontWeight: tokens.fontWeight.button }}
-          >
-            <Plus className="w-4 h-4" /> 新建方案
-          </button>
+          {!isReadOnly && (
+            <button
+              onClick={onCreateVersion}
+              className="px-8 py-4 bg-[#EF6B00] text-white rounded-[16px] text-[16px] font-[700] hover:bg-[#CC5B00] transition-colors flex items-center gap-2 shadow-sm"
+              style={{ borderRadius: tokens.borderRadius.button, fontWeight: tokens.fontWeight.button }}
+            >
+              <Plus className="w-4 h-4" /> 新建方案
+            </button>
+          )}
         </div>
 
         {/* --- SECTION 1: SCHEME MANAGEMENT --- */}
@@ -161,15 +220,18 @@ export default function OverviewPage({
                       className="px-8 py-4 bg-[#EF6B00] text-white rounded-[16px] text-[16px] font-[700] hover:bg-[#CC5B00] transition-colors flex items-center gap-2 shadow-sm"
                       style={{ borderRadius: tokens.borderRadius.button, fontWeight: tokens.fontWeight.button }}
                     >
-                      <Edit3 className="w-4 h-4" /> 进入编辑
+                      {isReadOnly ? <Eye className="w-4 h-4" /> : <Edit3 className="w-4 h-4" />}
+                      {isReadOnly ? '查看方案' : '进入编辑'}
                     </button>
-                    <button
-                      onClick={() => handlePublishScheme(draftVersion.id)}
-                      className="px-6 py-4 bg-white text-[#0A0A0A] border border-[#E5E7EB] rounded-[16px] text-[16px] font-[700] hover:bg-slate-50 transition-colors flex items-center gap-2"
-                      style={{ borderRadius: tokens.borderRadius.button, fontWeight: tokens.fontWeight.button }}
-                    >
-                      <Send className="w-4 h-4" /> 发布给客户
-                    </button>
+                    {!isReadOnly && (
+                      <button
+                        onClick={() => handlePublishScheme(draftVersion.id)}
+                        className="px-6 py-4 bg-white text-[#0A0A0A] border border-[#E5E7EB] rounded-[16px] text-[16px] font-[700] hover:bg-slate-50 transition-colors flex items-center gap-2"
+                        style={{ borderRadius: tokens.borderRadius.button, fontWeight: tokens.fontWeight.button }}
+                      >
+                        <Send className="w-4 h-4" /> 发布给客户
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -240,88 +302,207 @@ export default function OverviewPage({
 
         {/* --- SECTION 2: ORDER QUOTATION --- */}
         <section className="mb-[96px]">
-          <div className="flex items-center gap-3 mb-8">
-            <div className="w-1.5 h-8 bg-[#EF6B00] rounded-full"></div>
-            <h2 className="text-[30px] font-[900] text-[#0A0A0A]" style={{ fontWeight: tokens.fontWeight.sectionTitle }}>订购报价管理</h2>
+          <div className="flex items-center justify-between mb-8">
+            <div className="flex items-center gap-3">
+              <div className="w-1.5 h-8 bg-[#EF6B00] rounded-full"></div>
+              <h2 className="text-[30px] font-[900] text-[#0A0A0A]" style={{ fontWeight: tokens.fontWeight.sectionTitle }}>订购报价管理</h2>
+            </div>
+            {!isReadOnly && (
+              <button
+                onClick={handleCreateQuotation}
+                className="px-6 py-3 bg-white text-[#EF6B00] border border-[#EF6B00] rounded-[16px] text-[14px] font-[700] hover:bg-[#EF6B00]/5 transition-all flex items-center gap-2 shadow-sm active:scale-95"
+                style={{ borderRadius: tokens.borderRadius.button }}
+              >
+                <Plus className="w-4 h-4" /> 新建报价单
+              </button>
+            )}
           </div>
 
-          <div className="bg-white rounded-[24px] shadow-[0_12px_32px_rgba(0,0,0,0.08)] border border-[#E5E7EB] p-8 flex items-center justify-between" style={{ borderRadius: tokens.borderRadius.card, boxShadow: tokens.shadows.card }}>
-            <div className="flex items-center gap-6">
-              <div className="bg-[#EF6B00] p-4 rounded-[20px] shadow-lg shadow-[#EF6B00]/20">
-                <FileText className="w-8 h-8 text-white" />
-              </div>
-              <div>
-                <h3 className="text-[24px] font-[900] text-[#0A0A0A] mb-1">订购报价单</h3>
-                <div className="flex items-center gap-2">
-                  <span className="px-3 py-1 bg-orange-100 text-[#EF6B00] rounded-full text-[12px] font-bold">待发布</span>
-                  <p className="text-[#6B7280] text-[14px]">基于最新正式方案生成 · 包含设计、产品、施工明细</p>
+          {draftQuotation ? (
+            <div className="mb-8">
+              <div className="bg-white rounded-[32px] shadow-[0_20px_50px_rgba(0,0,0,0.1)] border border-[#E5E7EB] p-10 flex items-center justify-between relative overflow-hidden group hover:border-[#EF6B00]/20 transition-all" style={{ borderRadius: tokens.borderRadius.card }}>
+                <div className="absolute top-0 right-0 bg-[#EF6B00]/10 text-[#EF6B00] px-6 py-2 rounded-bl-[20px] text-[12px] font-[800] tracking-widest uppercase">
+                  当前工作版本 DRAFT
+                </div>
+                <div className="flex items-center gap-8">
+                  <div className="bg-[#EF6B00] p-5 rounded-[24px] shadow-xl shadow-[#EF6B00]/30 transform group-hover:scale-105 transition-transform">
+                    <FileText className="w-10 h-10 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-[32px] font-[900] text-[#0A0A0A] mb-2">{draftQuotation.name}</h3>
+                    <div className="flex items-center gap-3">
+                      <span className="px-4 py-1.5 bg-orange-100 text-[#EF6B00] rounded-full text-[14px] font-bold border border-orange-200/50">待发布</span>
+                      <p className="text-[#6B7280] text-[16px] font-medium">
+                        总额: <span className="text-[#0A0A0A] font-bold">{draftQuotation.totalPrice}</span> · 基于最新正式方案生成
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-4">
+                  <button
+                    onClick={() => navigate(ROUTES.QUOTATION, { state: { project, order: currentOrder } })}
+                    className="px-10 py-5 bg-white text-[#0A0A0A] border border-[#E5E7EB] rounded-[20px] text-[18px] font-[700] hover:bg-slate-50 transition-all flex items-center gap-3 shadow-md hover:shadow-lg active:scale-95"
+                    style={{ borderRadius: tokens.borderRadius.button }}
+                  >
+                    <Eye className="w-5 h-5" /> 预览报价单
+                  </button>
+                  {!isReadOnly && (
+                    <button
+                      onClick={() => handlePublishQuotation(draftQuotation.id)}
+                      disabled={currentOrder.status === 'S00'}
+                      className={cn(
+                        "px-10 py-5 rounded-[20px] text-[18px] font-[700] transition-all flex items-center gap-3 shadow-md hover:shadow-xl active:scale-95",
+                        currentOrder.status === 'S00' 
+                          ? "bg-gray-200 text-gray-400 cursor-not-allowed" 
+                          : "bg-[#EF6B00] text-white hover:bg-[#CC5B00]"
+                      )}
+                      style={{ borderRadius: tokens.borderRadius.button }}
+                    >
+                      <Send className="w-5 h-5" /> 发布给客户
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
-
-            <div className="flex gap-4">
-              <button
-                onClick={() => navigate(ROUTES.QUOTATION)}
-                className="px-8 py-4 bg-white text-[#0A0A0A] border border-[#E5E7EB] rounded-[16px] text-[16px] font-[700] hover:bg-slate-50 transition-colors flex items-center gap-2 shadow-sm"
-                style={{ borderRadius: tokens.borderRadius.button, fontWeight: tokens.fontWeight.button }}
-              >
-                <Eye className="w-4 h-4" /> 预览报价单
-              </button>
-              <button
-                onClick={handlePublishQuotation}
-                disabled={currentOrder.status === 'S00'}
-                className={cn(
-                  "px-8 py-4 rounded-[16px] text-[16px] font-[700] transition-colors flex items-center gap-2 shadow-sm",
-                  currentOrder.status === 'S00' 
-                    ? "bg-gray-200 text-gray-400 cursor-not-allowed" 
-                    : "bg-[#EF6B00] text-white hover:bg-[#CC5B00]"
-                )}
-                style={{ borderRadius: tokens.borderRadius.button, fontWeight: tokens.fontWeight.button }}
-              >
-                <Send className="w-4 h-4" /> 发布给客户
-              </button>
+          ) : (
+            <div className="bg-slate-50 rounded-[32px] border-2 border-dashed border-slate-200 p-16 text-center mb-8">
+              <FileText className="w-16 h-16 text-slate-300 mx-auto mb-6 opacity-50" />
+              <p className="text-slate-500 text-[18px] font-medium">暂无待发布的报价单，请点击上方按钮新建</p>
             </div>
-          </div>
+          )}
+
+          {/* History Quotations */}
+          {otherQuotations.length > 0 && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 mb-6">
+                <History className="w-6 h-6 text-[#6B7280]" />
+                <span className="text-[18px] font-bold text-[#6B7280]">历史与已发布版本</span>
+              </div>
+              {otherQuotations.map(q => (
+                <div key={q.id} className="bg-white rounded-[24px] shadow-sm border border-[#E5E7EB] p-8 flex items-center justify-between hover:border-[#EF6B00]/30 hover:shadow-md transition-all group" style={{ borderRadius: tokens.borderRadius.card }}>
+                  <div className="flex items-center gap-6">
+                    <div className="flex flex-col">
+                      <div className="flex items-center gap-4 mb-2">
+                        <h3 className="text-[20px] font-[900] text-[#0A0A0A]">{q.name}</h3>
+                        <span className="px-4 py-1 rounded-full text-[12px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-100">
+                          正式版 (客户可见)
+                        </span>
+                      </div>
+                      <p className="text-[#6B7280] text-[16px] font-medium">{q.createdAt} · 总额: <span className="text-[#0A0A0A] font-bold">{q.totalPrice}</span></p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => navigate(ROUTES.QUOTATION)}
+                    className="p-4 text-[#6B7280] hover:text-[#EF6B00] hover:bg-[#EF6B00]/5 rounded-[16px] transition-all group-hover:scale-110"
+                  >
+                    <Eye className="w-6 h-6" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </section>
 
         {/* --- SECTION 3: COMPLETION SETTLEMENT --- */}
-        <section className="mb-[96px]">
-          <div className="flex items-center gap-3 mb-8">
-            <div className="w-1.5 h-8 bg-[#EF6B00] rounded-full"></div>
-            <h2 className="text-[30px] font-[900] text-[#0A0A0A]" style={{ fontWeight: tokens.fontWeight.sectionTitle }}>完工结算管理</h2>
-          </div>
-
-          <div className="bg-white rounded-[24px] shadow-[0_12px_32px_rgba(0,0,0,0.08)] border border-[#E5E7EB] p-8 flex items-center justify-between opacity-60 grayscale-[0.5]" style={{ borderRadius: tokens.borderRadius.card, boxShadow: tokens.shadows.card }}>
-            <div className="flex items-center gap-6">
-              <div className="bg-slate-800 p-4 rounded-[20px] shadow-lg">
-                <Hammer className="w-8 h-8 text-white" />
+        {parseInt(currentOrder.status.substring(1)) >= 7 && (
+          <section className="mb-[96px]">
+            <div className="flex items-center justify-between mb-8">
+              <div className="flex items-center gap-3">
+                <div className="w-1.5 h-8 bg-[#EF6B00] rounded-full"></div>
+                <h2 className="text-[30px] font-[900] text-[#0A0A0A]" style={{ fontWeight: tokens.fontWeight.sectionTitle }}>完工结算管理</h2>
               </div>
-              <div>
-                <h3 className="text-[24px] font-[900] text-[#0A0A0A] mb-1">完工结算单</h3>
-                <div className="flex items-center gap-2">
-                  <span className="px-3 py-1 bg-slate-100 text-slate-500 rounded-full text-[12px] font-bold">开发中</span>
-                  <p className="text-[#6B7280] text-[14px]">项目完工后生成 · 最终实测实量结算明细</p>
+              {!isReadOnly && (
+                <button
+                  onClick={handleCreateSettlement}
+                  className="px-6 py-3 bg-white text-[#EF6B00] border border-[#EF6B00] rounded-[16px] text-[14px] font-[700] hover:bg-[#EF6B00]/5 transition-all flex items-center gap-2 shadow-sm active:scale-95"
+                  style={{ borderRadius: tokens.borderRadius.button }}
+                >
+                  <Plus className="w-4 h-4" /> 新建结算单
+                </button>
+              )}
+            </div>
+
+            {draftSettlement ? (
+              <div className="mb-8">
+                <div className="bg-white rounded-[32px] shadow-[0_20px_50px_rgba(0,0,0,0.1)] border border-[#E5E7EB] p-10 flex items-center justify-between relative overflow-hidden group hover:border-[#EF6B00]/20 transition-all" style={{ borderRadius: tokens.borderRadius.card }}>
+                  <div className="absolute top-0 right-0 bg-[#EF6B00]/10 text-[#EF6B00] px-6 py-2 rounded-bl-[20px] text-[12px] font-[800] tracking-widest uppercase">
+                    当前工作版本 DRAFT
+                  </div>
+                  <div className="flex items-center gap-8">
+                    <div className="bg-slate-800 p-5 rounded-[24px] shadow-xl transform group-hover:scale-105 transition-transform">
+                      <Hammer className="w-10 h-10 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-[32px] font-[900] text-[#0A0A0A] mb-2">{draftSettlement.name}</h3>
+                      <div className="flex items-center gap-3">
+                        <span className="px-4 py-1.5 bg-orange-100 text-[#EF6B00] rounded-full text-[14px] font-bold border border-orange-200/50">待确认</span>
+                        <p className="text-[#6B7280] text-[16px] font-medium">
+                          总额: <span className="text-[#0A0A0A] font-bold">{draftSettlement.totalPrice}</span> · 项目已进入验收阶段
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-4">
+                    <button
+                      onClick={() => navigate(ROUTES.SETTLEMENT, { state: { project, order: currentOrder } })}
+                      className="px-10 py-5 bg-white text-[#0A0A0A] border border-[#E5E7EB] rounded-[20px] text-[18px] font-[700] hover:bg-slate-50 transition-all flex items-center gap-3 shadow-md hover:shadow-lg active:scale-95"
+                      style={{ borderRadius: tokens.borderRadius.button }}
+                    >
+                      <Eye className="w-5 h-5" /> 预览结算单
+                    </button>
+                    {!isReadOnly && (
+                      <button
+                        onClick={() => handlePublishSettlement(draftSettlement.id)}
+                        className="px-10 py-5 bg-[#EF6B00] text-white rounded-[20px] text-[18px] font-[700] hover:bg-[#CC5B00] transition-all flex items-center gap-3 shadow-md hover:shadow-xl active:scale-95"
+                        style={{ borderRadius: tokens.borderRadius.button }}
+                      >
+                        <Send className="w-5 h-5" /> 发布给客户
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
+            ) : (
+              <div className="bg-slate-50 rounded-[32px] border-2 border-dashed border-slate-200 p-16 text-center mb-8">
+                <Hammer className="w-16 h-16 text-slate-300 mx-auto mb-6 opacity-50" />
+                <p className="text-slate-500 text-[18px] font-medium">暂无待确认的结算单，请点击上方按钮新建</p>
+              </div>
+            )}
 
-            <div className="flex gap-4">
-              <button
-                onClick={() => navigate(ROUTES.SETTLEMENT)}
-                className="px-8 py-4 bg-white text-[#0A0A0A] border border-[#E5E7EB] rounded-[16px] text-[16px] font-[700] hover:bg-slate-50 transition-colors flex items-center gap-2 shadow-sm"
-                style={{ borderRadius: tokens.borderRadius.button, fontWeight: tokens.fontWeight.button }}
-              >
-                <Eye className="w-4 h-4" /> 预览结算单
-              </button>
-              <button
-                className="px-8 py-4 bg-[#EF6B00] text-white rounded-[16px] text-[16px] font-[700] hover:bg-[#CC5B00] transition-colors flex items-center gap-2 shadow-sm"
-                style={{ borderRadius: tokens.borderRadius.button, fontWeight: tokens.fontWeight.button }}
-              >
-                <Send className="w-4 h-4" /> 发布给客户
-              </button>
-            </div>
-          </div>
-        </section>
+            {/* History Settlements */}
+            {otherSettlements.length > 0 && (
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 mb-6">
+                  <History className="w-6 h-6 text-[#6B7280]" />
+                  <span className="text-[18px] font-bold text-[#6B7280]">历史与已发布版本</span>
+                </div>
+                {otherSettlements.map(s => (
+                  <div key={s.id} className="bg-white rounded-[24px] shadow-sm border border-[#E5E7EB] p-8 flex items-center justify-between hover:border-[#EF6B00]/30 hover:shadow-md transition-all group" style={{ borderRadius: tokens.borderRadius.card }}>
+                    <div className="flex items-center gap-6">
+                      <div className="flex flex-col">
+                        <div className="flex items-center gap-4 mb-2">
+                          <h3 className="text-[20px] font-[900] text-[#0A0A0A]">{s.name}</h3>
+                          <span className="px-4 py-1 rounded-full text-[12px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-100">
+                            正式版 (客户可见)
+                          </span>
+                        </div>
+                        <p className="text-[#6B7280] text-[16px] font-medium">{s.createdAt} · 总额: <span className="text-[#0A0A0A] font-bold">{s.totalPrice}</span></p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => navigate(ROUTES.SETTLEMENT)}
+                      className="p-4 text-[#6B7280] hover:text-[#EF6B00] hover:bg-[#EF6B00]/5 rounded-[16px] transition-all group-hover:scale-110"
+                    >
+                      <Eye className="w-6 h-6" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
       </div>
     </div>
   );

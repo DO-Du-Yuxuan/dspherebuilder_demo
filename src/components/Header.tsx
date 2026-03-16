@@ -43,13 +43,12 @@ export function Header({
         {/* 左侧：Logo */}
         <div className="flex items-center gap-6">
           <motion.div 
-            whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             className="flex items-center gap-2 cursor-pointer"
             onClick={onHomeClick}
           >
             {/* 居梦科技 Logo */}
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center overflow-hidden">
+            <div className="w-40 h-40 rounded-lg flex items-center justify-center overflow-hidden">
               <img src="/images/logo.png" alt="Logo" className="w-full h-full object-contain" />
             </div>
           </motion.div>

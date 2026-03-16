@@ -1,23 +1,30 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Edit3, ArrowLeft, Plus, CheckCircle2, MessageSquare, Image as ImageIcon, Trash2, Send } from 'lucide-react';
 import { cn } from '../utils/cn';
 import { Annotation, PageSnapshot, OrderVersion } from '../types';
+import { findOrderByVersionId, updateOrderVersions } from '../utils/orderStorage';
 
 // 2. Editor Page
-export default function EditorPage({
-  versions,
-  onUpdateVersion,
-  onPublishVersion,
-}: {
-  versions: OrderVersion[],
-  onUpdateVersion: (v: OrderVersion) => void,
-  onPublishVersion: (id: string) => void,
-}) {
+export default function EditorPage() {
   const { versionId } = useParams<{ versionId: string }>();
   const navigate = useNavigate();
   
-  const version = versions.find(v => v.id === versionId);
+  const [version, setVersion] = useState<OrderVersion | null>(null);
+  const [order, setOrder] = useState<any>(null);
+
+  useEffect(() => {
+    if (versionId) {
+      const foundOrder = findOrderByVersionId(versionId);
+      if (foundOrder) {
+        setOrder(foundOrder);
+        const foundVersion = foundOrder.schemeVersions.find(v => v.id === versionId);
+        if (foundVersion) {
+          setVersion(foundVersion);
+        }
+      }
+    }
+  }, [versionId]);
   
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
   const [isAddingAnnotation, setIsAddingAnnotation] = useState(false);
@@ -41,10 +48,23 @@ export default function EditorPage({
   const isLocked = version.status !== 'draft';
   const readOnly = isLocked;
 
-  const onBack = () => navigate('/overview');
+  const onBack = () => navigate('/overview', { state: { order } });
+
+  const onUpdateVersion = (updatedVersion: OrderVersion) => {
+    if (!order) return;
+    const updatedVersions = order.schemeVersions.map(v => v.id === updatedVersion.id ? updatedVersion : v);
+    updateOrderVersions(order.id, 'scheme', updatedVersions);
+    setVersion(updatedVersion);
+    setOrder({ ...order, schemeVersions: updatedVersions });
+  };
+
   const onPublish = () => {
-    onPublishVersion(version.id);
-    navigate('/overview');
+    if (!order) return;
+    const updatedVersions = order.schemeVersions.map(v => 
+      v.id === version.id ? { ...v, status: 'published', publishedAt: new Date().toISOString() } : v
+    );
+    updateOrderVersions(order.id, 'scheme', updatedVersions);
+    navigate('/overview', { state: { order: { ...order, schemeVersions: updatedVersions } } });
   };
 
   if (!page) {

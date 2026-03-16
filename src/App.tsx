@@ -53,6 +53,8 @@ const INITIAL_MOCK_VERSIONS: OrderVersion[] = [
 
 export default function App() {
   const [versions, setVersions] = useState<OrderVersion[]>(INITIAL_MOCK_VERSIONS);
+  const [quotationVersions, setQuotationVersions] = useState<any[]>([]);
+  const [settlementVersions, setSettlementVersions] = useState<any[]>([]);
 
   const handleUpdateVersion = (updatedVersion: OrderVersion) => {
     setVersions(prev => prev.map(v => v.id === updatedVersion.id ? updatedVersion : v));
@@ -82,8 +84,6 @@ export default function App() {
       basedOnVersionId: source.id,
     };
 
-    // If there's already a draft, we might want to archive it or just add this one
-    // For simplicity in prototype, we just add it
     setVersions(prev => [newVersion, ...prev]);
   };
 
@@ -111,6 +111,10 @@ export default function App() {
           element={
             <OverviewPage 
               versions={versions} 
+              quotationVersions={quotationVersions}
+              setQuotationVersions={setQuotationVersions}
+              settlementVersions={settlementVersions}
+              setSettlementVersions={setSettlementVersions}
               onPublishVersion={handlePublishVersion}
               onCopyVersion={handleCopyVersion}
               onCreateVersion={handleCreateVersion}

@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
   FileText,
   User,
@@ -317,11 +317,18 @@ function ConstructionDetails({
 
 export default function SettlementPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { project, order } = location.state || {};
+
   const [isConfirmed, setIsConfirmed] = useState(false);
   const [isFeedbackSubmitted, setIsFeedbackSubmitted] = useState(false);
   const [signatureData, setSignatureData] = useState<string | null>(null);
   const [feedbackText, setFeedbackText] = useState<string | null>(null);
   const user = getCurrentUser();
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
 
   const handleLogout = () => {
     logout();
@@ -330,8 +337,8 @@ export default function SettlementPage() {
   return (
     <div className="min-h-screen bg-white pb-20">
       <Header 
-        projectName={MOCK_DATA.customer.name + "的家"}
-        orderNumber={MOCK_DATA.orderNumber}
+        projectName={project?.name || MOCK_DATA.customer.name + "的家"}
+        orderNumber={order?.orderNumber || MOCK_DATA.orderNumber}
         userName={user.name || user.username}
         onHomeClick={() => navigate(ROUTES.HOME)}
         onProjectClick={() => navigate(ROUTES.PROJECTS)}
@@ -344,7 +351,7 @@ export default function SettlementPage() {
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-4">
               <button 
-                onClick={() => navigate(ROUTES.OVERVIEW)}
+                onClick={() => navigate(ROUTES.OVERVIEW, { state: { project, order } })}
                 className="p-2 hover:bg-gray-100 rounded-xl transition-colors"
                 title="返回方案管理"
               >
@@ -365,7 +372,7 @@ export default function SettlementPage() {
             </div>
             <div className="text-right bg-gray-50 px-6 py-4 rounded-xl">
               <div className="text-[12px] text-[#6B7280] uppercase tracking-wide font-medium">销售订单</div>
-              <div className="text-[16px] font-bold text-[#0A0A0A] mt-1">{MOCK_DATA.orderNumber}</div>
+              <div className="text-[16px] font-bold text-[#0A0A0A] mt-1">{order?.orderNumber || MOCK_DATA.orderNumber}</div>
             </div>
           </div>
 

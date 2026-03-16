@@ -7,9 +7,10 @@ export interface Order {
   title: string;
   status: string;
   price: string;
+  schemeVersions: any[];
+  quotationVersions: any[];
+  settlementVersions: any[];
 }
-
-const STORAGE_KEY = 'epc_orders_data';
 
 const INITIAL_ORDERS: Order[] = [
   {
@@ -19,6 +20,9 @@ const INITIAL_ORDERS: Order[] = [
     title: '空间产品安装-家用电器',
     status: 'S00',
     price: '¥24,500',
+    schemeVersions: [],
+    quotationVersions: [],
+    settlementVersions: [],
   },
   {
     id: 'o2',
@@ -27,6 +31,9 @@ const INITIAL_ORDERS: Order[] = [
     title: '空间产品安装-移动家具',
     status: 'S01',
     price: '¥45,800',
+    schemeVersions: [],
+    quotationVersions: [],
+    settlementVersions: [],
   },
   {
     id: 'o3',
@@ -35,6 +42,9 @@ const INITIAL_ORDERS: Order[] = [
     title: '空间产品安装-软装摆件',
     status: 'S02',
     price: '¥12,000',
+    schemeVersions: [],
+    quotationVersions: [],
+    settlementVersions: [],
   },
   {
     id: 'o4',
@@ -43,6 +53,9 @@ const INITIAL_ORDERS: Order[] = [
     title: '空间产品安装-全屋床垫',
     status: 'S03',
     price: '¥18,900',
+    schemeVersions: [],
+    quotationVersions: [],
+    settlementVersions: [],
   },
   {
     id: 'o5',
@@ -51,6 +64,9 @@ const INITIAL_ORDERS: Order[] = [
     title: '空间产品安装-全屋窗帘',
     status: 'S04',
     price: '¥8,600',
+    schemeVersions: [],
+    quotationVersions: [],
+    settlementVersions: [],
   },
   {
     id: 'o6',
@@ -59,6 +75,9 @@ const INITIAL_ORDERS: Order[] = [
     title: '空间产品安装-木地板',
     status: 'S05',
     price: '¥32,000',
+    schemeVersions: [],
+    quotationVersions: [],
+    settlementVersions: [],
   },
   {
     id: 'o7',
@@ -67,6 +86,9 @@ const INITIAL_ORDERS: Order[] = [
     title: '全屋系统安装-卫浴产品安装',
     status: 'S06',
     price: '¥28,400',
+    schemeVersions: [],
+    quotationVersions: [],
+    settlementVersions: [],
   },
   {
     id: 'o8',
@@ -75,6 +97,9 @@ const INITIAL_ORDERS: Order[] = [
     title: '全屋系统安装-照明系统安装',
     status: 'S07',
     price: '¥15,200',
+    schemeVersions: [],
+    quotationVersions: [],
+    settlementVersions: [],
   },
   {
     id: 'o9',
@@ -83,6 +108,9 @@ const INITIAL_ORDERS: Order[] = [
     title: '全屋系统安装-智能系统安装',
     status: 'S08',
     price: '¥56,000',
+    schemeVersions: [],
+    quotationVersions: [],
+    settlementVersions: [],
   },
   {
     id: 'o10',
@@ -91,6 +119,9 @@ const INITIAL_ORDERS: Order[] = [
     title: '全屋系统安装-空调挂机系统安装',
     status: 'S09',
     price: '¥19,800',
+    schemeVersions: [],
+    quotationVersions: [],
+    settlementVersions: [],
   },
   {
     id: 'o11',
@@ -99,6 +130,9 @@ const INITIAL_ORDERS: Order[] = [
     title: '全屋系统安装-新风净化系统',
     status: 'S10',
     price: '¥22,000',
+    schemeVersions: [],
+    quotationVersions: [],
+    settlementVersions: [],
   },
   {
     id: 'o12',
@@ -107,6 +141,9 @@ const INITIAL_ORDERS: Order[] = [
     title: '空间产品安装-全屋定制橱柜',
     status: 'S11',
     price: '¥38,500',
+    schemeVersions: [],
+    quotationVersions: [],
+    settlementVersions: [],
   },
   {
     id: 'o13',
@@ -115,6 +152,9 @@ const INITIAL_ORDERS: Order[] = [
     title: '空间产品安装-全屋定制衣柜',
     status: 'S12',
     price: '¥64,000',
+    schemeVersions: [],
+    quotationVersions: [],
+    settlementVersions: [],
   },
   {
     id: 'o14',
@@ -123,30 +163,60 @@ const INITIAL_ORDERS: Order[] = [
     title: '全屋系统安装-地暖系统安装',
     status: 'S13',
     price: '¥31,200',
+    schemeVersions: [],
+    quotationVersions: [],
+    settlementVersions: [],
   },
 ];
 
+// In-memory store that resets on page refresh
+let memoryOrders: Order[] = [...INITIAL_ORDERS];
+
 export const getOrders = (): Order[] => {
-  const stored = localStorage.getItem(STORAGE_KEY);
-  if (!stored) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(INITIAL_ORDERS));
-    return INITIAL_ORDERS;
-  }
-  return JSON.parse(stored);
+  return memoryOrders;
 };
 
 export const updateOrderStatus = (orderId: string, newStatus: string): Order | null => {
-  const orders = getOrders();
-  const index = orders.findIndex(o => o.id === orderId);
+  const index = memoryOrders.findIndex(o => o.id === orderId);
   if (index !== -1) {
-    orders[index].status = newStatus;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(orders));
-    return orders[index];
+    memoryOrders[index] = { ...memoryOrders[index], status: newStatus };
+    return memoryOrders[index];
+  }
+  return null;
+};
+
+export const updateOrderVersions = (
+  orderId: string, 
+  type: 'scheme' | 'quotation' | 'settlement', 
+  versions: any[]
+): Order | null => {
+  const index = memoryOrders.findIndex(o => o.id === orderId);
+  if (index !== -1) {
+    const key = type === 'scheme' ? 'schemeVersions' : type === 'quotation' ? 'quotationVersions' : 'settlementVersions';
+    memoryOrders[index] = { ...memoryOrders[index], [key]: versions };
+    return memoryOrders[index];
   }
   return null;
 };
 
 export const getOrderById = (orderId: string): Order | null => {
-  const orders = getOrders();
-  return orders.find(o => o.id === orderId) || null;
+  return memoryOrders.find(o => o.id === orderId) || null;
+};
+
+export const findOrderByVersionId = (versionId: string) => {
+  return memoryOrders.find(o => 
+    o.schemeVersions?.some(v => v.id === versionId)
+  );
+};
+
+export const findOrderByQuotationId = (quotationId: string) => {
+  return memoryOrders.find(o => 
+    o.quotationVersions?.some(v => v.id === quotationId)
+  );
+};
+
+export const findOrderBySettlementId = (settlementId: string) => {
+  return memoryOrders.find(o => 
+    o.settlementVersions?.some(v => v.id === settlementId)
+  );
 };
