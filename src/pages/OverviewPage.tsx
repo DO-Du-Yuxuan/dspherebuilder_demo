@@ -146,6 +146,13 @@ export default function OverviewPage({
   const isReadOnly = [4, 8, 12].includes(statusNum);
   const hasPublishedQuotation = statusNum >= 6;
 
+  const handleCreateVersion = () => {
+    const newId = onCreateVersion();
+    if (newId) {
+      navigate(`/editor/${newId}`);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-white" style={{ fontFamily: tokens.fonts.body }}>
       <Header 
@@ -184,7 +191,7 @@ export default function OverviewPage({
           </div>
           {!isReadOnly && (
             <button
-              onClick={onCreateVersion}
+              onClick={handleCreateVersion}
               className="px-8 py-4 bg-[#EF6B00] text-white rounded-[16px] text-[16px] font-[700] hover:bg-[#CC5B00] transition-colors flex items-center gap-2 shadow-sm"
               style={{ borderRadius: tokens.borderRadius.button, fontWeight: tokens.fontWeight.button }}
             >

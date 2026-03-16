@@ -88,8 +88,9 @@ export default function App() {
   };
 
   const handleCreateVersion = () => {
+    const newId = `v-draft-${Date.now()}`;
     const newVersion: OrderVersion = {
-      id: `v-draft-${Date.now()}`,
+      id: newId,
       versionNumber: "1.0",
       name: "新方案",
       status: 'draft',
@@ -97,6 +98,7 @@ export default function App() {
       pages: []
     };
     setVersions(prev => [newVersion, ...prev]);
+    return newId;
   };
 
   return (

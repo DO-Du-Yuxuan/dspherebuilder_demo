@@ -1,114 +1,147 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Edit3, ArrowLeft, Plus, CheckCircle2, MessageSquare, Image as ImageIcon, Trash2, Send } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Check, X } from 'lucide-react';
+import Cropper, { Area } from 'react-easy-crop';
 import { cn } from '../utils/cn';
 import { Annotation, PageSnapshot, OrderVersion } from '../types';
-import { findOrderByVersionId, updateOrderVersions } from '../utils/orderStorage';
+import { toast } from 'sonner';
 
-// 2. Editor Page
-export default function EditorPage() {
+// Helper to get cropped image
+const getCroppedImg = async (imageSrc: string, pixelCrop: Area): Promise<string> => {
+  const image = new Image();
+  image.src = imageSrc;
+  await new Promise((resolve) => (image.onload = resolve));
+  const canvas = document.createElement('canvas');
+  canvas.width = pixelCrop.width;
+  canvas.height = pixelCrop.height;
+  const ctx = canvas.getContext('2d');
+  ctx?.drawImage(
+    image,
+    pixelCrop.x,
+    pixelCrop.y,
+    pixelCrop.width,
+    pixelCrop.height,
+    0,
+    0,
+    pixelCrop.width,
+    pixelCrop.height
+  );
+  return canvas.toDataURL('image/jpeg');
+};
+
+export default function EditorPage({
+  versions,
+  onUpdateVersion,
+  onPublishVersion,
+}: {
+  versions: OrderVersion[],
+  onUpdateVersion: (v: OrderVersion) => void,
+  onPublishVersion: (id: string) => void,
+}) {
   const { versionId } = useParams<{ versionId: string }>();
   const navigate = useNavigate();
   
-  const [version, setVersion] = useState<OrderVersion | null>(null);
-  const [order, setOrder] = useState<any>(null);
-
-  useEffect(() => {
-    if (versionId) {
-      const foundOrder = findOrderByVersionId(versionId);
-      if (foundOrder) {
-        setOrder(foundOrder);
-        const foundVersion = foundOrder.schemeVersions.find(v => v.id === versionId);
-        if (foundVersion) {
-          setVersion(foundVersion);
-        }
-      }
-    }
-  }, [versionId]);
+  const version = versions.find(v => v.id === versionId);
   
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
   const [isAddingAnnotation, setIsAddingAnnotation] = useState(false);
   const [hoveredAnnotationId, setHoveredAnnotationId] = useState<string | null>(null);
+  const [editingAnnotationId, setEditingAnnotationId] = useState<string | null>(null);
+  const [visibleAnnotationIds, setVisibleAnnotationIds] = useState<Set<string>>(new Set());
+  
+  // Image Crop State
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
+  const [showCropModal, setShowCropModal] = useState(false);
+  const [imageToCrop, setImageToCrop] = useState<string | null>(null);
+
+  const containerRef = useRef<HTMLDivElement>(null);
+  const leftPanelRef = useRef<HTMLDivElement>(null);
+  const imageContainerRef = useRef<HTMLDivElement>(null);
+  const annotationCardRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const [redrawTrigger, setRedrawTrigger] = useState(0);
 
   if (!version) {
     return (
-      <div className="min-h-screen bg-white p-6 font-sans flex flex-col items-center justify-center">
-        <h2 className="text-[30px] font-[900] text-[#0A0A0A] mb-4">找不到该版本</h2>
-        <button
-          onClick={() => navigate('/overview')}
-          className="px-8 py-4 bg-[#EF6B00] text-white rounded-[16px] text-[16px] font-[700] hover:bg-[#CC5B00] transition-colors"
-        >
-          返回方案列表
-        </button>
+      <div className="min-h-screen bg-slate-50 p-6 flex flex-col items-center justify-center">
+        <h2 className="text-3xl font-bold text-slate-900 mb-4">找不到该版本</h2>
+        <button onClick={() => navigate('/overview')} className="px-8 py-4 bg-orange-600 text-white rounded-2xl font-bold hover:bg-orange-700">返回方案列表</button>
       </div>
     );
   }
 
   const page = version.pages[currentPageIndex];
   const isLocked = version.status !== 'draft';
-  const readOnly = isLocked;
 
-  const onBack = () => navigate('/overview', { state: { order } });
+  // Viewport filtering for annotations
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        setVisibleAnnotationIds(prev => {
+          const next = new Set(prev);
+          entries.forEach(entry => {
+            const id = entry.target.getAttribute('data-anno-id');
+            if (id) {
+              if (entry.isIntersecting) {
+                next.add(id);
+              } else {
+                next.delete(id);
+              }
+            }
+          });
+          return next;
+        });
+      },
+      {
+        root: leftPanelRef.current,
+        threshold: 0.9, // Higher threshold to ensure card is well within view
+      }
+    );
 
-  const onUpdateVersion = (updatedVersion: OrderVersion) => {
-    if (!order) return;
-    const updatedVersions = order.schemeVersions.map(v => v.id === updatedVersion.id ? updatedVersion : v);
-    updateOrderVersions(order.id, 'scheme', updatedVersions);
-    setVersion(updatedVersion);
-    setOrder({ ...order, schemeVersions: updatedVersions });
-  };
+    const currentRefs = annotationCardRefs.current;
+    Object.values(currentRefs).forEach(el => {
+      if (el) observer.observe(el);
+    });
 
+    return () => {
+      Object.values(currentRefs).forEach(el => {
+        if (el) observer.unobserve(el);
+      });
+    };
+  }, [page?.annotations, redrawTrigger]);
+
+  const onBack = () => navigate('/overview');
   const onPublish = () => {
-    if (!order) return;
-    const updatedVersions = order.schemeVersions.map(v => 
-      v.id === version.id ? { ...v, status: 'published', publishedAt: new Date().toISOString() } : v
-    );
-    updateOrderVersions(order.id, 'scheme', updatedVersions);
-    navigate('/overview', { state: { order: { ...order, schemeVersions: updatedVersions } } });
+    onPublishVersion(version.id);
+    navigate('/overview');
   };
 
-  if (!page) {
-    return (
-      <div className="min-h-screen bg-white p-6 font-sans flex flex-col items-center justify-center">
-        <h2 className="text-[30px] font-[900] text-[#0A0A0A] mb-4">该版本暂无页面</h2>
-        <button
-          onClick={onBack}
-          className="px-8 py-4 bg-[#EF6B00] text-white rounded-[16px] text-[16px] font-[700] hover:bg-[#CC5B00] transition-colors"
-        >
-          返回方案列表
-        </button>
-      </div>
-    );
-  }
+  // Force redraw on scroll or resize
+  useEffect(() => {
+    const triggerRedraw = () => setRedrawTrigger(prev => prev + 1);
+    
+    const leftPanel = leftPanelRef.current;
+    const container = containerRef.current;
+    
+    window.addEventListener('resize', triggerRedraw);
+    leftPanel?.addEventListener('scroll', triggerRedraw);
+    container?.addEventListener('scroll', triggerRedraw);
+    
+    // Initial trigger
+    triggerRedraw();
+    
+    return () => {
+      window.removeEventListener('resize', triggerRedraw);
+      leftPanel?.removeEventListener('scroll', triggerRedraw);
+      container?.removeEventListener('scroll', triggerRedraw);
+    };
+  }, [page]);
 
-  // Refs for drawing lines
-  const containerRef = React.useRef<HTMLDivElement>(null);
-  const imageContainerRef = React.useRef<HTMLDivElement>(null);
-  const annotationCardRefs = React.useRef<Record<string, HTMLDivElement | null>>({});
-  const commentCardRefs = React.useRef<Record<string, HTMLDivElement | null>>({});
-  const [redrawTrigger, setRedrawTrigger] = useState(0);
-
-  React.useEffect(() => {
-    const handleResize = () => setRedrawTrigger(prev => prev + 1);
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
-  React.useEffect(() => {
-    const timer = setTimeout(() => setRedrawTrigger(prev => prev + 1), 50);
-    return () => clearTimeout(timer);
-  }, [page.annotations, currentPageIndex]);
-
-  // Helper to get index for image dots
-  const getAnnotationImageIndex = (id: string) => {
-    const imageAnnos = page.annotations.filter(a => a.targetType === 'image_point');
-    return imageAnnos.findIndex(a => a.id === id) + 1;
-  };
-
-  const getCommentImageIndex = (id: string) => {
-    const imageComments = page.comments.filter(c => c.targetType === 'image_point');
-    return imageComments.findIndex(c => c.id === id) + 1;
-  };
+  // Redraw when annotations change
+  useEffect(() => {
+    setRedrawTrigger(prev => prev + 1);
+  }, [page?.annotations]);
 
   const updateCurrentPage = (updatedPage: PageSnapshot) => {
     const newPages = [...version.pages];
@@ -116,43 +149,70 @@ export default function EditorPage() {
     onUpdateVersion({ ...version, pages: newPages });
   };
 
-  const handleImageClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if ((e.target as HTMLElement).closest('.marker-dot')) return;
-    if (!isAddingAnnotation || isLocked) return;
+  const handleImageUpload = (file: File) => {
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('图片大小不能超过 10MB');
+      return;
+    }
 
-    const rect = e.currentTarget.getBoundingClientRect();
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.src = e.target?.result as string;
+      img.onload = () => {
+        const ratio = img.width / img.height;
+        if (Math.abs(ratio - 16 / 9) > 0.05) {
+          toast.warning('图片比例不是 16:9，请裁切');
+          setImageToCrop(img.src);
+          setShowCropModal(true);
+        } else {
+          updateCurrentPage({ ...page, imageUrl: img.src });
+        }
+      };
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const onCropComplete = useCallback((_: Area, croppedAreaPixels: Area) => {
+    setCroppedAreaPixels(croppedAreaPixels);
+  }, []);
+
+  const saveCroppedImage = async () => {
+    if (imageToCrop && croppedAreaPixels) {
+      const croppedImage = await getCroppedImg(imageToCrop, croppedAreaPixels);
+      updateCurrentPage({ ...page, imageUrl: croppedImage });
+      setShowCropModal(false);
+      setImageToCrop(null);
+    }
+  };
+
+  const handleImageClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!isAddingAnnotation || isLocked || !imageContainerRef.current || !page.imageUrl) return;
+    const rect = imageContainerRef.current.getBoundingClientRect();
     const x = ((e.clientX - rect.left) / rect.width) * 100;
     const y = ((e.clientY - rect.top) / rect.height) * 100;
-
+    const newId = `anno-${Date.now()}`;
     const newAnno: Annotation = {
-      id: `anno-${Date.now()}`,
+      id: newId,
       targetType: 'image_point',
       point: { x, y },
       content: '',
       createdAt: new Date().toISOString(),
     };
-
-    updateCurrentPage({
-      ...page,
-      annotations: [...page.annotations, newAnno]
-    });
+    updateCurrentPage({ ...page, annotations: [...page.annotations, newAnno] });
     setIsAddingAnnotation(false);
+    setEditingAnnotationId(newId);
   };
 
-  const updateAnnotation = (id: string, content: string) => {
-    if (isLocked) return;
-    updateCurrentPage({
-      ...page,
-      annotations: page.annotations.map(a => a.id === id ? { ...a, content, updatedAt: new Date().toISOString() } : a)
-    });
-  };
-
-  const deleteAnnotation = (id: string) => {
-    if (isLocked) return;
-    updateCurrentPage({
-      ...page,
-      annotations: page.annotations.filter(a => a.id !== id)
-    });
+  const toggleAddingAnnotation = () => {
+    if (!isAddingAnnotation) {
+      // Cleanup empty annotations before starting new one
+      const cleanedAnnotations = page.annotations.filter(a => a.content.trim() !== '');
+      if (cleanedAnnotations.length !== page.annotations.length) {
+        updateCurrentPage({ ...page, annotations: cleanedAnnotations });
+      }
+    }
+    setIsAddingAnnotation(!isAddingAnnotation);
   };
 
   const handleAddPage = () => {
@@ -163,7 +223,7 @@ export default function EditorPage() {
       order: version.pages.length + 1,
       title: '新页面',
       text: '',
-      imageUrl: 'https://picsum.photos/seed/new/2000/1000',
+      imageUrl: '',
       annotations: [],
       comments: [],
       lock: { isLocked: false }
@@ -172,414 +232,305 @@ export default function EditorPage() {
     setCurrentPageIndex(version.pages.length);
   };
 
-  const handleReplaceImage = () => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
-    input.onchange = (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0];
-      if (file) {
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          const newUrl = event.target?.result as string;
-          updateCurrentPage({ ...page, imageUrl: newUrl });
-        };
-        reader.readAsDataURL(file);
-      }
-    };
-    input.click();
+  const scrollToAnnotation = (id: string) => {
+    const el = annotationCardRefs.current[id];
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
   };
 
+  const handleDeleteAnnotation = (id: string) => {
+    updateCurrentPage({
+      ...page,
+      annotations: page.annotations.filter(a => a.id !== id)
+    });
+    if (editingAnnotationId === id) setEditingAnnotationId(null);
+    if (hoveredAnnotationId === id) setHoveredAnnotationId(null);
+  };
 
-  const drawLines = React.useCallback(() => {
-    if (!containerRef.current || !imageContainerRef.current) return null;
+  const drawLines = useCallback(() => {
+    if (!containerRef.current || !imageContainerRef.current || !page) return null;
     const containerRect = containerRef.current.getBoundingClientRect();
-    const imageRect = imageContainerRef.current.getBoundingClientRect();
     const lines: React.ReactNode[] = [];
 
-    // Draw Annotation Lines
-    page.annotations.forEach(anno => {
+    page.annotations?.forEach(anno => {
       if (anno.targetType !== 'image_point') return;
-      const cardEl = annotationCardRefs.current[anno.id];
-      if (!cardEl) return;
+      
+      // Viewport filtering: only draw lines for visible annotations
+      if (!visibleAnnotationIds.has(anno.id)) return;
 
+      const cardEl = annotationCardRefs.current[anno.id];
+      const imageContainer = imageContainerRef.current;
+      if (!cardEl || !imageContainer) return;
+      
       const cardRect = cardEl.getBoundingClientRect();
+      const imageRect = imageContainer.getBoundingClientRect();
+      const leftPanel = leftPanelRef.current;
+      
+      // Additional safety: Check if card is actually within the left panel's vertical bounds
+      if (leftPanel) {
+        const lpRect = leftPanel.getBoundingClientRect();
+        if (cardRect.bottom < lpRect.top || cardRect.top > lpRect.bottom) return;
+      }
+      
       const startX = cardRect.right - containerRect.left;
       const startY = cardRect.top - containerRect.top + cardRect.height / 2;
-
       const endX = imageRect.left - containerRect.left + (imageRect.width * (anno.point?.x || 0)) / 100;
       const endY = imageRect.top - containerRect.top + (imageRect.height * (anno.point?.y || 0)) / 100;
-
+      
       const isHovered = hoveredAnnotationId === anno.id;
-      const path = `M ${startX} ${startY} L ${endX} ${endY}`;
-
+      
       lines.push(
-        <path
-          key={`line-annotation-${anno.id}`}
-          d={path}
-          fill="none"
-          stroke="#6B7280"
-          strokeWidth={isHovered ? "2" : "1"}
-          opacity={isHovered ? 0.8 : 0.2}
-          style={{ transition: 'opacity 0.2s ease' }}
+        <path 
+          key={`line-anno-${anno.id}`} 
+          d={`M ${startX} ${startY} L ${endX} ${endY}`} 
+          fill="none" 
+          stroke={isHovered ? "#CC5B00" : "#64748B"} 
+          strokeWidth={isHovered ? "4.5" : "1.5"} 
+          strokeDasharray="0"
+          strokeOpacity={isHovered ? "1" : "0.4"}
+          className="transition-all duration-200"
         />
       );
     });
-
-    // Draw Comment Lines
-    page.comments.forEach(comment => {
-      if (comment.targetType !== 'image_point') return;
-      const cardEl = commentCardRefs.current[comment.id];
-      if (!cardEl) return;
-
-      const cardRect = cardEl.getBoundingClientRect();
-      const startX = cardRect.left - containerRect.left;
-      const startY = cardRect.top - containerRect.top + cardRect.height / 2;
-
-      const endX = imageRect.left - containerRect.left + (imageRect.width * (comment.point?.x || 0)) / 100;
-      const endY = imageRect.top - containerRect.top + (imageRect.height * (comment.point?.y || 0)) / 100;
-
-      const isHovered = hoveredAnnotationId === comment.id;
-      const path = `M ${startX} ${startY} L ${endX} ${endY}`;
-
-      lines.push(
-        <path
-          key={`line-comment-${comment.id}`}
-          d={path}
-          fill="none"
-          stroke="#4887FF"
-          strokeWidth={isHovered ? "2" : "1"}
-          opacity={isHovered ? 0.8 : 0.2}
-          style={{ transition: 'opacity 0.2s ease' }}
-        />
-      );
-    });
-
     return lines;
-  }, [page.annotations, page.comments, redrawTrigger, hoveredAnnotationId]);
+  }, [page?.annotations, redrawTrigger, hoveredAnnotationId, visibleAnnotationIds]);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   return (
-    <div className="h-screen w-screen flex flex-col bg-white font-sans overflow-hidden">
-      {/* --- Top Bar --- */}
-      <div className="h-16 bg-white border-b border-[#E5E7EB] flex items-center justify-between px-6 flex-shrink-0 z-20 shadow-sm relative">
+    <div className="h-screen w-screen flex flex-col bg-slate-50 font-sans overflow-hidden">
+      {/* Top Bar */}
+      <div className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 z-20 shadow-sm">
         <div className="flex items-center gap-4">
-          <button onClick={onBack} className="p-2 -ml-2 text-[#6B7280] hover:bg-[#E5E7EB]/30 rounded-[12px] transition-colors" title="返回版本列表">
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <div className="flex flex-col">
-            <div className="flex items-center gap-2">
-              <span className="font-[900] text-[#0A0A0A] tracking-tight">{version.name}</span>
-              <span className={cn(
-                "px-2 py-0.5 rounded-[12px] text-[12px] font-[500] tracking-wider",
-                readOnly ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"
-              )}>
-                {readOnly ? '已发布 (只读)' : '编辑中'}
-              </span>
-            </div>
-          </div>
+          <button onClick={onBack} className="p-2 text-slate-500 hover:bg-slate-100 rounded-xl"><ArrowLeft className="w-5 h-5" /></button>
+          <h1 className="font-bold text-lg">{version.name}</h1>
         </div>
-
+        
         {/* Page Switcher */}
-        <div className="flex items-center bg-[#E5E7EB]/20 p-1 rounded-[16px] border border-[#E5E7EB]">
+        <div className="flex items-center gap-2">
           {version.pages.map((p, idx) => (
-            <button
-              key={p.pageId}
-              onClick={() => setCurrentPageIndex(idx)}
-              className={cn(
-                "px-4 py-1.5 rounded-[12px] text-[16px] font-[400] transition-all flex items-center gap-1.5",
-                currentPageIndex === idx
-                  ? "bg-white text-[#EF6B00] shadow-sm border border-[#E5E7EB] font-[700]"
-                  : "text-[#6B7280] hover:text-[#0A0A0A] hover:bg-[#E5E7EB]/30"
-              )}
-            >
-              <span>P{idx + 1}</span>
-            </button>
+            <button key={p.pageId} onClick={() => setCurrentPageIndex(idx)} className={cn("px-4 py-1.5 rounded-xl font-bold", currentPageIndex === idx ? "bg-orange-100 text-orange-700" : "bg-slate-100")}>P{idx + 1}</button>
           ))}
-          {!readOnly && (
-            <>
-              <div className="w-px h-4 bg-[#E5E7EB] mx-1"></div>
-              <button
-                onClick={handleAddPage}
-                className="px-3 py-1.5 text-[#6B7280] hover:text-[#EF6B00] transition-colors flex items-center gap-1 text-[16px] font-[400]" title="新增页面">
-                <Plus className="w-4 h-4" /> 新页
-              </button>
-            </>
-          )}
+          {!isLocked && <button onClick={handleAddPage} className="p-2 bg-slate-100 rounded-xl"><Plus className="w-5 h-5" /></button>}
         </div>
 
-        {/* Main Actions */}
-        <div className="flex items-center gap-3">
-          {!readOnly && (
-            <span className="text-[12px] text-[#6B7280] font-mono mr-2 flex items-center gap-1">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> 已自动保存
-            </span>
-          )}
-          {!readOnly && (
-            <button
-              onClick={onPublish}
-              className="px-8 py-2 bg-[#EF6B00] text-white rounded-[16px] text-[16px] font-[700] hover:bg-[#CC5B00] transition-all flex items-center gap-2 shadow-md"
-            >
-              <Send className="w-4 h-4" /> 发布此版本
-            </button>
-          )}
-        </div>
+        <button onClick={onPublish} className="px-6 py-2 bg-orange-600 text-white rounded-xl font-bold hover:bg-orange-700">发布此版本</button>
       </div>
 
-      {/* --- Three Column Layout --- */}
-      <div className="flex-1 flex overflow-hidden p-6 gap-6 relative z-10" ref={containerRef}>
-
-        {/* --- SVG Layer for Lines --- */}
-        <svg className="absolute inset-0 w-full h-full pointer-events-none z-30">
-          {drawLines()}
-        </svg>
-
-        {/* Left Column: Design Annotation Edit Area */}
-        <div className="w-1/4 flex flex-col gap-4 z-20">
-          <div className="flex-1 flex flex-col bg-white rounded-[24px] shadow-[0_12px_32px_rgba(0,0,0,0.08)] border border-[#E5E7EB] overflow-hidden">
-            <div className="p-5 border-b border-[#E5E7EB] flex justify-between items-center bg-[#E5E7EB]/10">
-              <div>
-                <h2 className="font-[900] text-[16px] text-[#0A0A0A] tracking-wide flex items-center gap-2">
-                  <Edit3 className="w-4 h-4 text-[#EF6B00]" /> {isLocked ? '查看' : '编辑'} 设计注释
-                </h2>
-                <p className="text-[12px] text-[#6B7280] mt-1 uppercase tracking-wider font-[500]">Design Notes</p>
-              </div>
-              {!isLocked && (
-                <div className="flex gap-1">
-                  <button
-                    onClick={() => setIsAddingAnnotation(!isAddingAnnotation)}
-                    className={cn(
-                      "p-2 rounded-[12px] transition-all text-[12px] font-[500] flex items-center gap-1 shadow-sm border",
-                      isAddingAnnotation
-                        ? "bg-[#EF6B00]/10 text-[#EF6B00] border-[#EF6B00]/20 ring-2 ring-[#EF6B00]/20"
-                        : "bg-white text-[#0A0A0A] border-[#E5E7EB] hover:bg-[#E5E7EB]/30"
-                    )}
-                    title="在图纸上打点添加注释"
-                  >
-                    <ImageIcon className="w-3.5 h-3.5" /> {isAddingAnnotation ? '取消打点' : '图纸打点'}
-                  </button>
-                </div>
-              )}
+      {!page ? (
+        <div className="flex-1 flex flex-col items-center justify-center bg-slate-50">
+          <div className="bg-white p-12 rounded-[32px] shadow-xl border border-slate-200 text-center max-w-md">
+            <div className="w-20 h-20 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-6">
+              <Plus className="w-10 h-10 text-orange-600" />
             </div>
+            <h2 className="text-2xl font-bold text-slate-900 mb-2">暂无页面数据</h2>
+            <p className="text-slate-500 mb-8">该版本目前还是空的，请点击下方按钮添加第一个设计页面。</p>
+            <button onClick={handleAddPage} className="w-full py-4 bg-orange-600 text-white rounded-2xl font-bold hover:bg-orange-700 transition-all shadow-lg shadow-orange-600/20">
+              添加第一个页面
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex-1 flex overflow-hidden p-6 gap-6 relative" ref={containerRef}>
+          {/* SVG Overlay for lines */}
+          <svg className="absolute inset-0 w-full h-full pointer-events-none z-30">
+            {drawLines()}
+          </svg>
 
-            <div
-              className="flex-1 overflow-y-auto p-5 space-y-4 custom-scrollbar"
-              onScroll={() => setRedrawTrigger(prev => prev + 1)}
-            >
-              {[...page.annotations].map((anno) => (
-                <div
-                  key={anno.id}
-                  ref={el => annotationCardRefs.current[anno.id] = el}
+          {/* Left Column */}
+          <div className="w-1/4 flex flex-col gap-4 z-20">
+            <div className="flex-1 bg-white rounded-3xl shadow-sm border border-slate-200 p-5 overflow-y-auto" ref={leftPanelRef}>
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="font-bold text-lg">设计注释</h2>
+                {!isLocked && (
+                  <button 
+                    onClick={toggleAddingAnnotation} 
+                    className={cn(
+                      "px-4 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2", 
+                      isAddingAnnotation ? "bg-orange-600 text-white shadow-lg shadow-orange-600/20" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                    )}
+                  >
+                    <Plus className="w-4 h-4" />
+                    打点注释
+                  </button>
+                )}
+              </div>
+              {page.annotations.map((anno, idx) => (
+                <div 
+                  key={anno.id} 
+                  data-anno-id={anno.id}
+                  ref={el => annotationCardRefs.current[anno.id] = el} 
                   onMouseEnter={() => setHoveredAnnotationId(anno.id)}
                   onMouseLeave={() => setHoveredAnnotationId(null)}
                   className={cn(
-                    "bg-white border rounded-[24px] p-4 relative transition-all group",
-                    hoveredAnnotationId === anno.id ? "border-[#EF6B00]/30 shadow-md ring-2 ring-[#EF6B00]/10" : "border-[#E5E7EB] shadow-sm hover:border-[#EF6B00]/20"
+                    "border rounded-2xl p-4 mb-4 transition-all",
+                    hoveredAnnotationId === anno.id ? "border-orange-600 bg-orange-50/30" : "border-slate-200 bg-slate-50",
+                    editingAnnotationId === anno.id ? "ring-2 ring-orange-600 ring-offset-2" : ""
                   )}
                 >
-                  <div className="absolute -left-3 -top-3 w-7 h-7 bg-[#0A0A0A] text-white rounded-full flex items-center justify-center text-[12px] font-[700] shadow-md border-2 border-white">
-                    {getAnnotationImageIndex(anno.id)}
-                  </div>
-
-                  <div className="flex justify-between items-center mb-3 ml-2">
+                  <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
-                      <span className="text-[12px] font-[500] text-[#6B7280] uppercase tracking-wider">
-                        图纸位置
-                      </span>
-                      <span className="text-[12px] bg-[#E5E7EB]/30 text-[#6B7280] px-1.5 py-0.5 rounded font-sans">
-                        X:{Math.round(anno.point?.x || 0)} Y:{Math.round(anno.point?.y || 0)}
-                      </span>
+                      <div className="w-6 h-6 bg-orange-600 text-white rounded-full flex items-center justify-center font-bold text-xs">{idx + 1}</div>
+                      <span className="font-bold">注释 {idx + 1}</span>
                     </div>
                     {!isLocked && (
-                      <button
-                        onClick={() => deleteAnnotation(anno.id)}
-                        className="text-[#6B7280] hover:text-[#EF6B00] transition-colors p-1 rounded-md hover:bg-[#EF6B00]/5"
-                        title="删除此注释"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      <div className="flex items-center gap-1">
+                        {editingAnnotationId === anno.id && (
+                          <button 
+                            onClick={() => setEditingAnnotationId(null)}
+                            className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg"
+                            title="完成编辑"
+                          >
+                            <Check className="w-4 h-4" />
+                          </button>
+                        )}
+                        <button 
+                          onClick={() => handleDeleteAnnotation(anno.id)}
+                          className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
+                          title="删除"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     )}
                   </div>
-
-                  <div
-                    className={cn(
-                      "text-[16px] text-[#0A0A0A] bg-[#E5E7EB]/10 border border-transparent rounded-[12px] p-3 min-h-[5rem] transition-all",
-                      !isLocked && "cursor-text hover:border-[#E5E7EB] hover:bg-white"
-                    )}
-                  >
-                    {!isLocked ? (
+                  
+                  {editingAnnotationId === anno.id ? (
+                    <div className="space-y-3">
                       <textarea
-                        className="w-full h-full bg-transparent outline-none resize-none font-sans"
+                        autoFocus
+                        maxLength={150}
+                        placeholder="请输入注释内容..."
+                        className="w-full bg-white border border-slate-200 rounded-xl p-3 outline-none resize-none text-sm focus:border-orange-600 transition-colors"
                         value={anno.content}
-                        onChange={(e) => updateAnnotation(anno.id, e.target.value)}
-                        placeholder="点击添加内容..."
+                        onChange={(e) => updateCurrentPage({ ...page, annotations: page.annotations.map(a => a.id === anno.id ? { ...a, content: e.target.value } : a) })}
                       />
-                    ) : (
-                      <div className="font-sans">{anno.content || <span className="text-[#6B7280] italic">暂无内容</span>}</div>
-                    )}
-                  </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] text-slate-400">{anno.content.length}/150</span>
+                        <button 
+                          onClick={() => setEditingAnnotationId(null)}
+                          className="px-3 py-1 bg-orange-600 text-white text-xs font-bold rounded-lg hover:bg-orange-700"
+                        >
+                          确认完成
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-slate-600 leading-relaxed min-h-[1.5rem]">
+                      {anno.content || <span className="text-slate-300 italic">暂无内容</span>}
+                    </p>
+                  )}
                 </div>
               ))}
-              {page.annotations.length === 0 && (
-                <div className="text-center text-[#6B7280] text-[16px] py-12 flex flex-col items-center gap-3">
-                  <div className="w-12 h-12 rounded-full bg-[#E5E7EB]/20 flex items-center justify-center mb-2">
-                    <Edit3 className="w-5 h-5 text-[#6B7280]" />
-                  </div>
-                  <p>{isLocked ? '暂无设计注释' : '点击上方按钮添加设计注释'}</p>
-                </div>
-              )}
             </div>
           </div>
-        </div>
 
-        {/* Middle Column: Main Content Edit Area */}
-        <div
-          className="w-2/4 flex flex-col gap-6 overflow-y-auto custom-scrollbar pr-2 pb-12 z-20"
-          onScroll={() => setRedrawTrigger(prev => prev + 1)}
-        >
-          {/* 1. Title Edit */}
-          <div className="flex-none bg-white rounded-[24px] p-6 text-center border border-[#E5E7EB] shadow-[0_12px_32px_rgba(0,0,0,0.08)] group relative transition-all">
-            {!isLocked && (
-              <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 text-[12px] text-[#EF6B00] bg-[#EF6B00]/5 px-2 py-1 rounded-md flex items-center gap-1 pointer-events-none transition-opacity font-[500]">
-                <Edit3 className="w-3 h-3" /> 点击编辑标题
-              </div>
-            )}
-            <input
-              type="text"
-              value={page.title}
-              onChange={(e) => !isLocked && updateCurrentPage({ ...page, title: e.target.value })}
-              readOnly={isLocked}
-              className={cn(
-                "w-full text-[48px] font-[900] text-[#0A0A0A] bg-transparent border-b-2 border-transparent text-center outline-none transition-colors font-title",
-                !isLocked && "hover:border-[#E5E7EB] focus:border-[#EF6B00]"
-              )}
-              placeholder="输入页面大标题..."
-            />
-          </div>
-
-          {/* 2. Text Edit */}
-          <div className="flex-none bg-white rounded-[24px] p-8 border border-[#E5E7EB] shadow-[0_12px_32px_rgba(0,0,0,0.08)] group relative transition-all">
-            {!isLocked && (
-              <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 text-[12px] text-[#EF6B00] bg-[#EF6B00]/5 px-2 py-1 rounded-md flex items-center gap-1 pointer-events-none transition-opacity font-[500]">
-                <Edit3 className="w-3 h-3" /> 点击编辑正文
-              </div>
-            )}
-            <textarea
-              value={page.text}
-              onChange={(e) => !isLocked && updateCurrentPage({ ...page, text: e.target.value })}
-              readOnly={isLocked}
-              className={cn(
-                "w-full text-[#6B7280] text-[16px] leading-relaxed bg-transparent border border-transparent rounded-[12px] p-4 min-h-[150px] resize-none outline-none transition-all font-sans",
-                !isLocked && "hover:border-[#E5E7EB] hover:bg-[#E5E7EB]/10 focus:border-[#EF6B00]/30 focus:bg-white focus:ring-4 focus:ring-[#EF6B00]/5"
-              )}
-              placeholder="输入页面描述文字..."
-            />
-          </div>
-
-          {/* 3. Image Edit */}
-          <div className="flex-1 min-h-[500px] relative flex items-center justify-center p-3 group">
-            {/* Background Layer */}
-            <div className={cn(
-              "absolute inset-0 bg-white rounded-[24px] border shadow-[0_12px_32px_rgba(0,0,0,0.08)] transition-all duration-300 -z-10",
-              isAddingAnnotation ? "border-[#EF6B00]/30 ring-4 ring-[#EF6B00]/10" : "border-[#E5E7EB] group-hover:border-[#EF6B00]/20"
-            )} />
-
-            {/* Image Actions */}
-            {!isLocked && (
-              <div className="absolute top-6 right-6 z-20 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button
-                  onClick={handleReplaceImage}
-                  className="px-6 py-2 bg-white/90 backdrop-blur-md border border-[#E5E7EB] rounded-[16px] text-[16px] font-[700] text-[#0A0A0A] hover:text-[#EF6B00] hover:border-[#EF6B00]/20 flex items-center gap-2 shadow-sm transition-all">
-                  <ImageIcon className="w-4 h-4" /> 替换图纸
-                </button>
-              </div>
-            )}
-
-            {isAddingAnnotation && (
-              <div className="absolute top-6 left-1/2 -translate-x-1/2 bg-[#EF6B00]/90 backdrop-blur-md text-white px-5 py-2.5 rounded-full text-[16px] font-[700] shadow-lg z-[60] pointer-events-none animate-pulse flex items-center gap-2">
-                <ImageIcon className="w-4 h-4" /> 请点击图纸上的具体位置添加注释点
-              </div>
-            )}
-
-            <div
-              ref={imageContainerRef}
-              onClick={handleImageClick}
-              className={cn(
-                "relative w-full h-full flex items-center justify-center rounded-[24px] overflow-hidden",
-                isAddingAnnotation ? "cursor-crosshair" : ""
-              )}>
-              <img
-                src={page.imageUrl}
-                alt="CAD Floor Plan"
-                className="w-full h-full object-contain bg-[#E5E7EB]/10 relative z-10"
-                referrerPolicy="no-referrer"
+          {/* Middle Column */}
+          <div className="w-2/4 flex flex-col gap-4 overflow-y-auto">
+            <div className="bg-white rounded-3xl p-4 shadow-sm border border-slate-200 flex items-center justify-center">
+              <input 
+                maxLength={30} 
+                value={page.title} 
+                onChange={(e) => updateCurrentPage({ ...page, title: e.target.value })} 
+                className="w-full text-4xl font-bold outline-none text-center" 
+                placeholder="请输入标题"
               />
-
-              {/* Render Annotation Dots on Image */}
-              {page.annotations.map((anno) => (
-                <div
-                  key={`dot-${anno.id}`}
+            </div>
+            <div className="bg-white rounded-3xl p-4 shadow-sm border border-slate-200">
+              <textarea 
+                maxLength={150} 
+                value={page.text} 
+                onChange={(e) => updateCurrentPage({ ...page, text: e.target.value })} 
+                className="w-full h-24 outline-none resize-none text-lg leading-relaxed" 
+                style={{ textIndent: '2em' }}
+                placeholder="请输入描述内容..."
+              />
+              <div className="text-xs text-slate-400 text-right">{page.text.length}/150</div>
+            </div>
+            <div className="flex-1 bg-white rounded-3xl p-6 shadow-sm border border-slate-200 relative group min-h-[400px]" ref={imageContainerRef} onClick={handleImageClick}>
+              {page.imageUrl ? (
+                <img src={page.imageUrl} className="w-full h-full object-contain" />
+              ) : (
+                <div className="w-full h-full flex flex-col items-center justify-center border-2 border-dashed border-slate-200 rounded-2xl bg-slate-50/50">
+                  <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-sm mb-4">
+                    <Plus className="w-8 h-8 text-slate-400" />
+                  </div>
+                  <p className="text-slate-500 font-medium">点击右上方按钮上传图纸</p>
+                </div>
+              )}
+              
+              {page.annotations.map((anno, idx) => (
+                <div 
+                  key={anno.id} 
                   onMouseEnter={() => setHoveredAnnotationId(anno.id)}
                   onMouseLeave={() => setHoveredAnnotationId(null)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    scrollToAnnotation(anno.id);
+                  }}
                   className={cn(
-                    "absolute w-7 h-7 rounded-full border-[2.5px] border-white shadow-md -translate-x-1/2 -translate-y-1/2 flex items-center justify-center transition-transform cursor-pointer z-50",
-                    hoveredAnnotationId === anno.id ? "bg-[#EF6B00] scale-125 z-[60] ring-4 ring-[#EF6B00]/30" : "bg-[#0A0A0A] z-50"
-                  )}
-                  style={{ left: `${anno.point?.x || 0}%`, top: `${anno.point?.y || 0}%` }}
+                    "absolute w-[22px] h-[22px] rounded-full border-2 border-white -translate-x-1/2 -translate-y-1/2 flex items-center justify-center font-bold text-[10px] text-white cursor-pointer z-40 transition-all", 
+                    hoveredAnnotationId === anno.id ? "bg-orange-600 scale-125 shadow-lg shadow-orange-600/40" : "bg-orange-500 hover:bg-orange-600"
+                  )} 
+                  style={{ left: `${anno.point?.x}%`, top: `${anno.point?.y}%` }}
                 >
-                  <span className="text-[12px] text-white font-[700]">{getAnnotationImageIndex(anno.id)}</span>
+                  {idx + 1}
                 </div>
               ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Right Column: Customer Feedback View Area */}
-        <div className="w-1/4 flex flex-col gap-4 z-20">
-          <div className="flex-1 flex flex-col bg-white rounded-[24px] shadow-[0_12px_32px_rgba(0,0,0,0.08)] border border-[#E5E7EB] overflow-hidden relative">
-
-            <div className="p-5 border-b border-[#E5E7EB] flex justify-between items-center bg-[#E5E7EB]/10">
-              <div>
-                <h2 className="font-[900] text-[16px] text-[#0A0A0A] tracking-wide flex items-center gap-2">
-                  <MessageSquare className="w-4 h-4 text-[#4887FF]" /> 客户反馈参考
-                </h2>
-                <p className="text-[12px] text-[#6B7280] mt-1 uppercase tracking-wider font-[500]">From Previous Version</p>
-              </div>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-5 space-y-4 custom-scrollbar">
-              {page.comments.map((comment) => (
-                <div
-                  key={comment.id}
-                  ref={el => commentCardRefs.current[comment.id] = el}
-                  className="bg-white border border-[#E5E7EB] shadow-sm rounded-[24px] p-4 relative"
-                >
-                  <div className="absolute -right-3 -top-3 w-7 h-7 bg-[#4887FF] text-white rounded-full flex items-center justify-center text-[12px] font-[700] shadow-md border-2 border-white">
-                    {getCommentImageIndex(comment.id)}
-                  </div>
-
-                  <div className="text-[12px] font-[500] text-[#6B7280] mb-2 uppercase tracking-wider">
-                    针对: 图纸位置
-                  </div>
-
-                  <div className="text-[16px] text-[#0A0A0A] leading-relaxed bg-[#E5E7EB]/10 p-3 rounded-[12px] border border-[#E5E7EB] font-sans">
-                    {comment.content}
-                  </div>
-                </div>
-              ))}
-
-              {page.comments.length === 0 && (
-                <div className="text-center text-[#6B7280] text-[16px] py-12 flex flex-col items-center gap-3">
-                  <div className="w-12 h-12 rounded-full bg-[#E5E7EB]/20 flex items-center justify-center mb-2 shadow-sm">
-                    <CheckCircle2 className="w-5 h-5 text-[#4887FF]" />
-                  </div>
-                  <p>该页面暂无客户反馈记录</p>
+              
+              {!isLocked && (
+                <div className={cn("absolute top-4 right-4 transition-opacity", page.imageUrl ? "opacity-0 group-hover:opacity-100" : "opacity-100")}>
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      fileInputRef.current?.click();
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 bg-white/90 backdrop-blur shadow-lg rounded-xl text-sm font-bold text-slate-700 hover:bg-white"
+                  >
+                    <Plus className="w-4 h-4" />
+                    {page.imageUrl ? '更换图纸' : '上传图纸'}
+                  </button>
+                  <input 
+                    ref={fileInputRef}
+                    type="file" 
+                    accept="image/*" 
+                    onChange={(e) => e.target.files && handleImageUpload(e.target.files[0])} 
+                    className="hidden" 
+                  />
                 </div>
               )}
             </div>
           </div>
-        </div>
 
-      </div>
+          {/* Right Column */}
+          <div className="w-1/4 flex flex-col gap-4 z-20">
+            <div className="flex-1 bg-white rounded-3xl shadow-sm border border-slate-200 p-5 overflow-y-auto">
+              <h2 className="font-bold text-lg mb-4">客户反馈参考</h2>
+              {page.comments.map(c => (
+                <div key={c.id} className="bg-blue-50 border border-blue-100 rounded-2xl p-4 mb-4">
+                  <p className="text-sm">{c.content}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Crop Modal */}
+      {showCropModal && imageToCrop && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-10">
+          <div className="bg-white p-6 rounded-3xl w-full max-w-2xl h-[80vh] flex flex-col">
+            <div className="relative flex-1">
+              <Cropper image={imageToCrop} crop={crop} zoom={zoom} aspect={16 / 9} onCropChange={setCrop} onZoomChange={setZoom} onCropAreaChange={onCropComplete} />
+            </div>
+            <div className="flex justify-end gap-4 mt-4">
+              <button onClick={() => setShowCropModal(false)} className="px-6 py-2">取消</button>
+              <button onClick={saveCroppedImage} className="px-6 py-2 bg-orange-600 text-white rounded-xl">确认裁切</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
