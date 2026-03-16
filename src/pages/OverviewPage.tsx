@@ -52,10 +52,9 @@ export default function OverviewPage({
       const updated = updateOrderStatus(currentOrder.id, 'S01');
       if (updated) {
         setCurrentOrder(updated);
+        onPublishVersion(versionId);
         toast.success('发布成功！订单状态已更新为 S01-意向沟通中');
       }
-    } else if (currentOrder.status === 'S02') {
-      toast.info('方案已发布，请前往下方发布报价单以推进流程');
     } else {
       // Default behavior for other statuses
       onPublishVersion(versionId);
