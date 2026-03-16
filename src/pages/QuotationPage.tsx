@@ -335,6 +335,7 @@ export default function QuotationPage() {
         userName={user.name || user.username}
         onHomeClick={() => navigate(ROUTES.HOME)}
         onProjectClick={() => navigate(ROUTES.PROJECTS)}
+        onOrderClick={() => navigate(ROUTES.ORDERS)}
         onLogout={handleLogout}
       />
       <div className="max-w-screen-2xl mx-auto p-6">  

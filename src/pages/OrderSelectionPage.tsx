@@ -1,125 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { tokens } from '../design-tokens';
 import { ROUTES, ORDER_STATUS_CONFIG } from '../utils/constants';
-import { Search, ChevronRight } from 'lucide-react';
+import { Search, ChevronRight, ArrowLeft } from 'lucide-react';
 import { Header } from '../components/Header';
 import { getCurrentUser, logout } from '../utils/authUtils';
-
-const MOCK_ORDERS = [
-  {
-    id: 'o1',
-    projectId: 'p1',
-    orderNumber: 'PSO-OD_LHJCF-001',
-    title: '空间产品安装-家用电器',
-    status: 'S00',
-    price: '¥24,500',
-  },
-  {
-    id: 'o2',
-    projectId: 'p1',
-    orderNumber: 'PSO-OD_LHJCF-002',
-    title: '空间产品安装-移动家具',
-    status: 'S01',
-    price: '¥45,800',
-  },
-  {
-    id: 'o3',
-    projectId: 'p1',
-    orderNumber: 'PSO-OD_LHJCF-003',
-    title: '空间产品安装-软装摆件',
-    status: 'S02',
-    price: '¥12,000',
-  },
-  {
-    id: 'o4',
-    projectId: 'p1',
-    orderNumber: 'PSO-OD_LHJCF-004',
-    title: '空间产品安装-全屋床垫',
-    status: 'S03',
-    price: '¥18,900',
-  },
-  {
-    id: 'o5',
-    projectId: 'p1',
-    orderNumber: 'PSO-OD_LHJCF-005',
-    title: '空间产品安装-全屋窗帘',
-    status: 'S04',
-    price: '¥8,600',
-  },
-  {
-    id: 'o6',
-    projectId: 'p1',
-    orderNumber: 'PSO-OD_LHJCF-006',
-    title: '空间产品安装-木地板',
-    status: 'S05',
-    price: '¥32,000',
-  },
-  {
-    id: 'o7',
-    projectId: 'p1',
-    orderNumber: 'PSO-OD_LHJCF-007',
-    title: '全屋系统安装-卫浴产品安装',
-    status: 'S06',
-    price: '¥28,400',
-  },
-  {
-    id: 'o8',
-    projectId: 'p1',
-    orderNumber: 'PSO-OD_LHJCF-008',
-    title: '全屋系统安装-照明系统安装',
-    status: 'S07',
-    price: '¥15,200',
-  },
-  {
-    id: 'o9',
-    projectId: 'p1',
-    orderNumber: 'PSO-OD_LHJCF-009',
-    title: '全屋系统安装-智能系统安装',
-    status: 'S08',
-    price: '¥56,000',
-  },
-  {
-    id: 'o10',
-    projectId: 'p1',
-    orderNumber: 'PSO-OD_LHJCF-010',
-    title: '全屋系统安装-空调挂机系统安装',
-    status: 'S09',
-    price: '¥19,800',
-  },
-  {
-    id: 'o11',
-    projectId: 'p1',
-    orderNumber: 'PSO-OD_LHJCF-011',
-    title: '全屋系统安装-新风净化系统',
-    status: 'S10',
-    price: '¥22,000',
-  },
-  {
-    id: 'o12',
-    projectId: 'p1',
-    orderNumber: 'PSO-OD_LHJCF-012',
-    title: '空间产品安装-全屋定制橱柜',
-    status: 'S11',
-    price: '¥38,500',
-  },
-  {
-    id: 'o13',
-    projectId: 'p1',
-    orderNumber: 'PSO-OD_LHJCF-013',
-    title: '空间产品安装-全屋定制衣柜',
-    status: 'S12',
-    price: '¥64,000',
-  },
-  {
-    id: 'o14',
-    projectId: 'p1',
-    orderNumber: 'PSO-OD_LHJCF-014',
-    title: '全屋系统安装-地暖系统安装',
-    status: 'S13',
-    price: '¥31,200',
-  },
-];
+import { getOrders, Order } from '../utils/orderStorage';
 
 export default function OrderSelectionPage() {
   const navigate = useNavigate();
@@ -128,8 +14,13 @@ export default function OrderSelectionPage() {
   const project = location.state?.project || { name: '龙湖璟宸府(示例项目)', code: 'PRJT_R-049-T4-LHJCF' };
   
   const [searchQuery, setSearchQuery] = useState('');
+  const [orders, setOrders] = useState<Order[]>([]);
 
-  const filteredOrders = MOCK_ORDERS.filter(order => 
+  useEffect(() => {
+    setOrders(getOrders());
+  }, []);
+
+  const filteredOrders = orders.filter(order => 
     order.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
     order.orderNumber.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -150,6 +41,12 @@ export default function OrderSelectionPage() {
 
       <main className="max-w-7xl mx-auto px-6 py-12">
         <div className="mb-8">
+          <button 
+            onClick={() => navigate(ROUTES.PROJECTS)}
+            className="flex items-center gap-2 text-[#6B7280] hover:text-[#EF6B00] transition-colors mb-6 font-medium"
+          >
+            <ArrowLeft className="w-4 h-4" /> 返回项目选择
+          </button>
           <h1 className="text-[30px] font-black text-[#0A0A0A] mb-8" style={{ fontFamily: tokens.fonts.title }}>
             订单管理
           </h1>
@@ -174,27 +71,38 @@ export default function OrderSelectionPage() {
           {filteredOrders.length > 0 ? (
             filteredOrders.map((order) => {
               const statusInfo = ORDER_STATUS_CONFIG[order.status as keyof typeof ORDER_STATUS_CONFIG];
+              
+              // Helper to get a darker version of the color for text
+              const getDarkerColor = (hex: string) => {
+                if (hex.toLowerCase() === '#d0d7d6') return '#5c6362';
+                // For other colors, we can also darken them slightly for better contrast
+                return hex; 
+              };
+
+              const textColor = getDarkerColor(statusInfo.color);
+
               return (
                 <button
                   key={order.id}
                   onClick={() => navigate(ROUTES.OVERVIEW, { state: { order, project } })}
-                  className="w-full bg-white rounded-[24px] border border-[#E5E7EB] shadow-sm hover:shadow-md hover:border-[#EF6B00]/30 transition-all text-left flex items-center justify-between group overflow-hidden"
+                  className="w-full bg-white rounded-[24px] border border-[#E5E7EB] shadow-sm hover:shadow-md hover:border-[#EF6B00]/30 transition-all text-left group overflow-hidden"
                 >
-                  <div className="flex items-stretch h-full w-full">
-                    {/* Status Color Bar */}
-                    <div 
-                      className="w-1.5 self-stretch" 
-                      style={{ backgroundColor: statusInfo.color }}
-                    />
-                    
-                    <div className="flex-1 p-6 flex items-center justify-between">
+                  <div className="p-6 flex items-center justify-between w-full">
+                    <div className="flex items-center gap-6">
+                      {/* Status Color Bar - Inset and Rounded */}
+                      <div 
+                        className="w-1.5 h-12 rounded-full shrink-0" 
+                        style={{ backgroundColor: statusInfo.color }}
+                      />
+                      
                       <div className="flex flex-col gap-3">
                         <div className="flex items-center">
                           <span 
-                            className="px-3 py-1 rounded-lg text-[12px] font-bold"
+                            className="px-3 py-1 rounded-lg text-[12px] font-bold border"
                             style={{ 
                               backgroundColor: `${statusInfo.color}15`, 
-                              color: statusInfo.color 
+                              color: textColor,
+                              borderColor: `${statusInfo.color}40`
                             }}
                           >
                             {statusInfo.label}
@@ -210,13 +118,13 @@ export default function OrderSelectionPage() {
                           </span>
                         </div>
                       </div>
+                    </div>
 
-                      <div className="flex items-center gap-6">
-                        <span className="text-[20px] font-black text-[#0A0A0A]">
-                          {order.price}
-                        </span>
-                        <ChevronRight className="w-6 h-6 text-[#E5E7EB] group-hover:text-[#EF6B00] transition-colors" />
-                      </div>
+                    <div className="flex items-center gap-6">
+                      <span className="text-[20px] font-black text-[#0A0A0A]">
+                        {order.price}
+                      </span>
+                      <ChevronRight className="w-6 h-6 text-[#E5E7EB] group-hover:text-[#EF6B00] transition-colors" />
                     </div>
                   </div>
                 </button>

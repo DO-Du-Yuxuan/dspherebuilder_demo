@@ -47,8 +47,8 @@ const DashboardPage: React.FC = () => {
               >
                 <LayoutDashboard className="w-7 h-7" />
               </div>
-              <h2 className="text-xl font-bold text-gray-900 mb-2">内容概览</h2>
-              <p className="text-gray-500 text-sm leading-relaxed">查看所有方案版本，进行版本克隆与发布管理</p>
+              <h2 className="text-xl font-bold text-gray-900 mb-2">EPC工作台</h2>
+              <p className="text-gray-500 text-sm leading-relaxed">查看所有项目订单，进行订单发布与管理</p>
               <div className="mt-8 text-orange-600 text-sm font-bold flex items-center gap-1 group-hover:translate-x-1 transition-transform">
                 立即进入 <ArrowRight className="w-4 h-4" />
               </div>

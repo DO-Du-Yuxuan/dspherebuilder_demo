@@ -15,6 +15,8 @@ export interface HeaderProps {
   onHomeClick?: () => void;
   /** 点击项目名称返回选择页的回调 */
   onProjectClick?: () => void;
+  /** 点击订单编号返回选择页的回调 */
+  onOrderClick?: () => void;
   /** 退出登录回调 */
   onLogout?: () => void;
 }
@@ -26,6 +28,7 @@ export function Header({
   userAvatar,
   onHomeClick,
   onProjectClick,
+  onOrderClick,
   onLogout
 }: HeaderProps) {
   return (
@@ -70,12 +73,13 @@ export function Header({
               {orderNumber && (
                 <>
                   <ChevronRight className="w-4 h-4 mx-2 text-gray-400" />
-                  <span 
-                    className="text-sm text-gray-500 truncate max-w-[200px]"
+                  <button 
+                    onClick={onOrderClick}
+                    className={`text-sm font-medium transition-colors truncate max-w-[200px] ${onOrderClick ? 'text-gray-700 hover:text-orange-600' : 'text-gray-500 cursor-default'}`}
                     title={orderNumber}
                   >
                     订单：{orderNumber}
-                  </span>
+                  </button>
                 </>
               )}
             </motion.div>

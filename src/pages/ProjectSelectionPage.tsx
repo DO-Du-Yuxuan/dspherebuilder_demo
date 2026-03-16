@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { tokens } from '../design-tokens';
 import { ROUTES } from '../utils/constants';
-import { LayoutGrid, ChevronRight } from 'lucide-react';
+import { LayoutGrid, ChevronRight, ArrowLeft } from 'lucide-react';
 import { Header } from '../components/Header';
 import { getCurrentUser, logout } from '../utils/authUtils';
 
@@ -30,6 +30,12 @@ export default function ProjectSelectionPage() {
 
       <main className="max-w-4xl mx-auto px-6 py-12">
         <div className="mb-12">
+          <button 
+            onClick={() => navigate(ROUTES.HOME)}
+            className="flex items-center gap-2 text-[#6B7280] hover:text-[#EF6B00] transition-colors mb-6 font-medium"
+          >
+            <ArrowLeft className="w-4 h-4" /> 返回首页
+          </button>
           <h1 className="text-[48px] font-black text-[#0A0A0A] mb-2" style={{ fontFamily: tokens.fonts.title }}>
             项目选择
           </h1>

@@ -1,12 +1,14 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { History, Eye, Edit3, Send, Copy, Plus, FileText, CheckCircle2, MessageSquare, Package, Hammer, Home, ArrowLeftRight } from 'lucide-react';
+import { History, Eye, Edit3, Send, Copy, Plus, FileText, CheckCircle2, MessageSquare, Package, Hammer, Home, ArrowLeftRight, ArrowLeft } from 'lucide-react';
+import { toast } from 'sonner';
 import { cn } from '../utils/cn';
 import { OrderVersion } from '../types';
-import { ROUTES } from '../utils/constants';
+import { ROUTES, ORDER_STATUS_CONFIG } from '../utils/constants';
 import { tokens } from '../design-tokens';
 import { Header } from '../components/Header';
 import { getCurrentUser, logout } from '../utils/authUtils';
+import { getOrderById, updateOrderStatus, Order } from '../utils/orderStorage';
 
 // 1. Overview Page
 export default function OverviewPage({
@@ -24,7 +26,51 @@ export default function OverviewPage({
   const location = useLocation();
   
   const project = location.state?.project || { name: '龙湖璟宸府(示例项目)', code: 'PRJT_R-049-T4-LHJCF' };
-  const order = location.state?.order || { orderNumber: 'PSO-OD_LHJCF-001', title: '空间产品安装-家用电器' };
+  const initialOrder = location.state?.order || { id: 'o1', orderNumber: 'PSO-OD_LHJCF-001', title: '空间产品安装-家用电器', status: 'S00' };
+
+  const [currentOrder, setCurrentOrder] = useState<Order | any>(initialOrder);
+
+  useEffect(() => {
+    if (initialOrder.id) {
+      const latest = getOrderById(initialOrder.id);
+      if (latest) {
+        setCurrentOrder(latest);
+      }
+    }
+  }, [initialOrder.id]);
+
+  const handlePublishScheme = (versionId: string) => {
+    if (currentOrder.status === 'S00') {
+      const updated = updateOrderStatus(currentOrder.id, 'S01');
+      if (updated) {
+        setCurrentOrder(updated);
+        toast.success('发布成功！订单状态已更新为 S01-意向沟通中');
+      }
+    } else if (currentOrder.status === 'S02') {
+      toast.info('方案已发布，请前往下方发布报价单以推进流程');
+    } else {
+      // Default behavior for other statuses
+      onPublishVersion(versionId);
+      toast.success('方案已发布给客户');
+    }
+  };
+
+  const handlePublishQuotation = () => {
+    if (currentOrder.status === 'S00') {
+      toast.error('请先发布方案设计，再发布报价单');
+      return;
+    }
+
+    if (currentOrder.status === 'S02') {
+      const updated = updateOrderStatus(currentOrder.id, 'S03');
+      if (updated) {
+        setCurrentOrder(updated);
+        toast.success('发布成功！订单状态已更新为 S03-订购确认中');
+      }
+    } else {
+      toast.success('报价单已发布给客户');
+    }
+  };
 
   const draftVersion = versions.find(v => v.status === 'draft');
   const otherVersions = versions.filter(v => v.status !== 'draft');
@@ -34,21 +80,50 @@ export default function OverviewPage({
     logout();
   };
 
+  const statusInfo = ORDER_STATUS_CONFIG[currentOrder.status as keyof typeof ORDER_STATUS_CONFIG] || ORDER_STATUS_CONFIG['S00'];
+
+  // Helper to get a darker version of the color for text
+  const getDarkerColor = (hex: string) => {
+    if (hex.toLowerCase() === '#d0d7d6') return '#5c6362';
+    return hex; 
+  };
+
+  const textColor = getDarkerColor(statusInfo.color);
+
   return (
     <div className="min-h-screen bg-white" style={{ fontFamily: tokens.fonts.body }}>
       <Header 
         projectName={project.name}
-        orderNumber={order.orderNumber}
+        orderNumber={currentOrder.orderNumber}
         userName={user.name || user.username}
         onHomeClick={() => navigate(ROUTES.HOME)}
         onProjectClick={() => navigate(ROUTES.PROJECTS)}
+        onOrderClick={() => navigate(ROUTES.ORDERS, { state: { project } })}
         onLogout={handleLogout}
       />
 
       <div className="max-w-5xl mx-auto py-24">
         <div className="mb-[96px] flex justify-between items-center">
           <div>
-            <h1 className="text-[48px] font-[900] text-[#0A0A0A] mb-2 leading-tight" style={{ fontWeight: tokens.fontWeight.h1 }}>方案管理中心</h1>
+            <button 
+              onClick={() => navigate(ROUTES.ORDERS, { state: { project } })}
+              className="flex items-center gap-2 text-[#6B7280] hover:text-[#EF6B00] transition-colors mb-6 font-medium"
+            >
+              <ArrowLeft className="w-4 h-4" /> 返回订单管理
+            </button>
+            <div className="flex items-center gap-4 mb-2">
+              <h1 className="text-[48px] font-[900] text-[#0A0A0A] leading-tight" style={{ fontWeight: tokens.fontWeight.h1 }}>方案管理中心</h1>
+              <span 
+                className="px-4 py-1.5 rounded-full text-[14px] font-bold border"
+                style={{ 
+                  backgroundColor: `${statusInfo.color}15`, 
+                  color: textColor,
+                  borderColor: `${statusInfo.color}40`
+                }}
+              >
+                {statusInfo.label}
+              </span>
+            </div>
             <p className="text-[#6B7280] text-[16px]">管理当前订单的所有交付版本</p>
           </div>
           <button
@@ -64,7 +139,7 @@ export default function OverviewPage({
         <section className="mb-[96px]">
           <div className="flex items-center gap-3 mb-8">
             <div className="w-1.5 h-8 bg-[#EF6B00] rounded-full"></div>
-            <h2 className="text-[30px] font-[900] text-[#0A0A0A]" style={{ fontWeight: tokens.fontWeight.sectionTitle }}>方案交付管理</h2>
+            <h2 className="text-[30px] font-[900] text-[#0A0A0A]" style={{ fontWeight: tokens.fontWeight.sectionTitle }}>方案设计管理</h2>
           </div>
 
           {/* Draft Version */}
@@ -89,7 +164,7 @@ export default function OverviewPage({
                       <Edit3 className="w-4 h-4" /> 进入编辑
                     </button>
                     <button
-                      onClick={() => onPublishVersion(draftVersion.id)}
+                      onClick={() => handlePublishScheme(draftVersion.id)}
                       className="px-6 py-4 bg-white text-[#0A0A0A] border border-[#E5E7EB] rounded-[16px] text-[16px] font-[700] hover:bg-slate-50 transition-colors flex items-center gap-2"
                       style={{ borderRadius: tokens.borderRadius.button, fontWeight: tokens.fontWeight.button }}
                     >
@@ -193,7 +268,14 @@ export default function OverviewPage({
                 <Eye className="w-4 h-4" /> 预览报价单
               </button>
               <button
-                className="px-8 py-4 bg-[#EF6B00] text-white rounded-[16px] text-[16px] font-[700] hover:bg-[#CC5B00] transition-colors flex items-center gap-2 shadow-sm"
+                onClick={handlePublishQuotation}
+                disabled={currentOrder.status === 'S00'}
+                className={cn(
+                  "px-8 py-4 rounded-[16px] text-[16px] font-[700] transition-colors flex items-center gap-2 shadow-sm",
+                  currentOrder.status === 'S00' 
+                    ? "bg-gray-200 text-gray-400 cursor-not-allowed" 
+                    : "bg-[#EF6B00] text-white hover:bg-[#CC5B00]"
+                )}
                 style={{ borderRadius: tokens.borderRadius.button, fontWeight: tokens.fontWeight.button }}
               >
                 <Send className="w-4 h-4" /> 发布给客户
