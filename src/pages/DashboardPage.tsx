@@ -1,10 +1,10 @@
 import React, { useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { Edit3, LayoutDashboard, ArrowRight, LogOut } from 'lucide-react'
-import { getCurrentUser, logout } from '../../utils/authUtils'
-import { ROUTES } from '../../utils/constants'
-import { tokens } from '../../design-tokens'
-import { Header } from '../../components/Header'
+import { getCurrentUser, logout } from '../utils/authUtils'
+import { ROUTES } from '../utils/constants'
+import { tokens } from '../design-tokens'
+import { Header } from '../components/Header'
 
 const PageContainer: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className = '' }) => (
   <div className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 ${className}`}>

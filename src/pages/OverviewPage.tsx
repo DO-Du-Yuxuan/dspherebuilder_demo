@@ -1,12 +1,12 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { History, Eye, Edit3, Send, Copy, Plus, FileText, CheckCircle2, MessageSquare, Package, Hammer, Home, ArrowLeftRight } from 'lucide-react';
-import { cn } from '../../utils/cn';
-import { OrderVersion } from '../../types';
-import { ROUTES } from '../../utils/constants';
-import { tokens } from '../../design-tokens';
-import { Header } from '../../components/Header';
-import { getCurrentUser, logout } from '../../utils/authUtils';
+import { cn } from '../utils/cn';
+import { OrderVersion } from '../types';
+import { ROUTES } from '../utils/constants';
+import { tokens } from '../design-tokens';
+import { Header } from '../components/Header';
+import { getCurrentUser, logout } from '../utils/authUtils';
 
 // 1. Overview Page
 export default function OverviewPage({
@@ -23,8 +23,8 @@ export default function OverviewPage({
   const navigate = useNavigate();
   const location = useLocation();
   
-  const project = location.state?.project || { name: '静安·云境公寓 (示例项目)', code: 'PRJT_R-070-A-00001' };
-  const order = location.state?.order || { orderNumber: 'PSO-OD_LHJCF-00471', title: '瓷砖铺贴-公卫、次卫、厨房墙地铺贴' };
+  const project = location.state?.project || { name: '龙湖璟宸府(示例项目)', code: 'PRJT_R-049-T4-LHJCF' };
+  const order = location.state?.order || { orderNumber: 'PSO-OD_LHJCF-001', title: '空间产品安装-家用电器' };
 
   const draftVersion = versions.find(v => v.status === 'draft');
   const otherVersions = versions.filter(v => v.status !== 'draft');

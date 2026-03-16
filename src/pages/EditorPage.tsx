@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Edit3, ArrowLeft, Plus, CheckCircle2, MessageSquare, Image as ImageIcon, Trash2, Send } from 'lucide-react';
-import { cn } from '../../utils/cn';
-import { Annotation, PageSnapshot, OrderVersion } from '../../types';
+import { cn } from '../utils/cn';
+import { Annotation, PageSnapshot, OrderVersion } from '../types';
 
 // 2. Editor Page
 export default function EditorPage({

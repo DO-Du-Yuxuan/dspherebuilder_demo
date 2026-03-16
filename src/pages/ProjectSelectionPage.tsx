@@ -2,10 +2,15 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { tokens } from '../design-tokens';
 import { ROUTES } from '../utils/constants';
-import { MOCK_PROJECTS } from '../mock';
-import { LayoutGrid, ChevronRight, Home, ArrowLeftRight } from 'lucide-react';
+import { LayoutGrid, ChevronRight } from 'lucide-react';
 import { Header } from '../components/Header';
 import { getCurrentUser, logout } from '../utils/authUtils';
+
+const MOCK_PROJECTS = [
+  { id: 'p1', name: '龙湖璟宸府(示例项目)', code: 'PRJT_R-049-T4-LHJCF' },
+  { id: 'p2', name: '晓月澄庐102', code: 'PRJT_R-056-T-XYCL102' },
+  { id: 'p3', name: '季景铭郡', code: 'PRJT_R-058-A-JJMJ' },
+];
 
 export default function ProjectSelectionPage() {
   const navigate = useNavigate();

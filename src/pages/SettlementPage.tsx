@@ -12,9 +12,9 @@ import {
   Hammer,
 } from "lucide-react";
 import { toast } from "sonner";
-import { ROUTES } from "../utils/constants";
-import { Header } from "../components/Header";
-import { getCurrentUser, logout } from "../utils/authUtils";
+import { ROUTES } from '../utils/constants';
+import { Header } from '../components/Header';
+import { getCurrentUser, logout } from '../utils/authUtils';
 import "../styles/quotation.css";
 
 // --- Types ---
@@ -315,7 +315,7 @@ function ConstructionDetails({
 
 // --- Main Page ---
 
-export default function QuotationPage() {
+export default function SettlementPage() {
   const navigate = useNavigate();
   const [isConfirmed, setIsConfirmed] = useState(false);
   const [isFeedbackSubmitted, setIsFeedbackSubmitted] = useState(false);
@@ -349,11 +349,11 @@ export default function QuotationPage() {
               >
                 <ArrowLeft className="w-6 h-6 text-[#6B7280]" />
               </button>
-              <div className="bg-[#EF6B00] p-3 rounded-xl shadow-lg">
-                <FileText className="w-8 h-8 text-white" />
+              <div className="bg-slate-800 p-3 rounded-xl shadow-lg">
+                <Hammer className="w-8 h-8 text-white" />
               </div>
               <div>
-                <h1 className="text-[48px] font-black text-[#0A0A0A]">订购报价单</h1>
+                <h1 className="text-[48px] font-black text-[#0A0A0A]">完工结算单</h1>
                 {isConfirmed && (
                   <div className="flex items-center gap-2 mt-2">
                     <CheckCircle2 className="w-5 h-5 text-green-600" />
@@ -393,15 +393,15 @@ export default function QuotationPage() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="bg-white/20 p-2 rounded-xl backdrop-blur-sm"><DollarSign className="w-7 h-7" /></div>
-                <span className="text-[16px] font-normal">报价总价</span>
+                <span className="text-[16px] font-normal">结算总价</span>
               </div>
               <div className="text-[48px] font-black tracking-tight">¥{MOCK_DATA.pricing.total.toLocaleString()}</div>
             </div>
             <div className="grid grid-cols-3 gap-6 mt-8 pt-6 border-t border-white/30 text-center">
               {[
-                { label: "高端设计报价", value: MOCK_DATA.pricing.design },
-                { label: "严选精品报价", value: MOCK_DATA.pricing.product },
-                { label: "匠心施工报价", value: MOCK_DATA.pricing.construction },
+                { label: "高端设计结算", value: MOCK_DATA.pricing.design },
+                { label: "严选精品结算", value: MOCK_DATA.pricing.product },
+                { label: "匠心施工结算", value: MOCK_DATA.pricing.construction },
               ].map((item, i) => (
                 <div key={i} className="bg-white/10 backdrop-blur-sm rounded-[16px] p-4">
                   <div className="text-[12px] text-white/80 uppercase tracking-wide font-medium">{item.label}</div>
@@ -413,28 +413,13 @@ export default function QuotationPage() {
         </div>
 
         {/* E - Design */}
-        <DesignDetails 
-          items={MOCK_DATA.designItems} 
-          total={MOCK_DATA.pricing.design} 
-          title="高端设计报价明细"
-          summaryText="设计费用报价合计："
-        />
+        <DesignDetails items={MOCK_DATA.designItems} total={MOCK_DATA.pricing.design} />
 
         {/* P - Product */}
-        <ProductDetails 
-          items={MOCK_DATA.productItems} 
-          total={MOCK_DATA.pricing.product} 
-          title="严选精品报价明细"
-          summaryText="货品费用报价合计："
-        />
+        <ProductDetails items={MOCK_DATA.productItems} total={MOCK_DATA.pricing.product} />
 
         {/* C - Construction */}
-        <ConstructionDetails 
-          items={MOCK_DATA.constructionItems} 
-          total={MOCK_DATA.pricing.construction} 
-          title="匠心施工报价明细"
-          summaryText="施工费用报价合计："
-        />
+        <ConstructionDetails items={MOCK_DATA.constructionItems} total={MOCK_DATA.pricing.construction} />
 
         {/* Footer Text & Confirm */}
         <div className="bg-white rounded-[24px] shadow-card p-8 mt-12 border border-[#E5E7EB]">
@@ -443,24 +428,24 @@ export default function QuotationPage() {
             <h3 className="font-black text-[#0A0A0A] text-[30px]">感谢您对居梦科技的支持与信任!</h3>
           </div>
           <div className="text-[16px] text-[#0A0A0A] leading-relaxed space-y-4 mb-8">
-            <p>基于您在方案阶段已经确定的内容,我司现针对相关服务内容进行报价确认。</p>
-            <p>本报价单所列金额为财务已核算金额,并已根据合同条款、阶段性沟通结果及相关调整事项进行确认。</p>
-            <p>请您仔细核对以下各项报价费用。若您有任何疑问或异议,请您于收到本报价单后三个工作日内提出,以便及时协商解决。</p>
+            <p>基于您在报价阶段已经确定的订购报价单,我司现针对已完成!的所有工作内容与相关服务进行结算。</p>
+            <p>本结算单所列金额为财务已核算金额,并已根据合同条款、阶段性验收结果及相关变更调整事项进行确认。</p>
+            <p>请您仔细核对以下各项结算费用。若您有任何疑问或异议,请您于收数到本结算单后三个工作日内提出,以便及时协商解决。</p>
           </div>
 
           <div className="mt-8 pt-6 border-t border-[#E5E7EB]">
             {isConfirmed ? (
               <div className="bg-green-50 rounded-[24px] p-6 border border-green-200 flex justify-between items-start">
                 <div>
-                  <h4 className="font-black text-green-900 text-[30px] mb-2">报价单已确认</h4>
-                  <p className="text-[16px] text-[#6B7280]">感谢您的确认！项目报价流程已完成。</p>
+                  <h4 className="font-black text-green-900 text-[30px] mb-2">结算单已确认</h4>
+                  <p className="text-[16px] text-[#6B7280]">感谢您的确认！项目结算流程已完成。</p>
                 </div>
                 {signatureData && <img src={signatureData} alt="Signature" className="w-48 h-24 border-2 border-green-300 rounded-xl bg-white object-contain" />}
               </div>
             ) : isFeedbackSubmitted ? (
               <div className="bg-orange-50 rounded-[24px] p-6 border border-orange-200">
                 <h4 className="font-black text-[#0A0A0A] text-[30px] mb-2">异议已记录</h4>
-                <p className="text-[16px] text-[#6B7280]">我们已收到您的报价异议，核算专员将在1个工作日内联系您复核数据。</p>
+                <p className="text-[16px] text-[#6B7280]">我们已收到您的结算异议，核算专员将在1个工作日内联系您复核数据。</p>
                 {feedbackText && <div className="mt-4 p-3 bg-white border border-orange-200 rounded-xl text-[14px]">{feedbackText}</div>}
               </div>
             ) : null}
