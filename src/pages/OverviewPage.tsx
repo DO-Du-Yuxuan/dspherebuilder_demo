@@ -123,7 +123,8 @@ export default function OverviewPage({
     }
     const newQuotation = {
       id: `q-${Date.now()}`,
-      name: `订购报价单 V${quotationVersions.length + 1}.0`,
+      name: `订购报价单 `,
+      versionNumber: (quotationVersions.length + 1).toString(),
       createdAt: new Date().toLocaleString(),
       status: 'draft',
       totalPrice: `¥${(Math.random() * 50000 + 10000).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
@@ -201,7 +202,8 @@ export default function OverviewPage({
     }
     const newSettlement = {
       id: `s-${Date.now()}`,
-      name: `完工结算单 V${settlementVersions.length + 1}.0`,
+      name: `交付结算单 `,
+      versionNumber: (settlementVersions.length + 1).toString(),
       createdAt: new Date().toLocaleString(),
       status: 'draft',
       totalPrice: `¥${(Math.random() * 50000 + 10000).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
@@ -288,17 +290,22 @@ export default function OverviewPage({
     }
   };
 
-  const getStatusBadge = (status: string, isHistory: boolean = false) => {
+  const getStatusBadge = (version: OrderVersion, isHistory: boolean = false) => {
+    const { status } = version;
     const baseClass = "px-3 py-1 rounded-[12px] text-[12px] font-[500]";
     const historyClass = "bg-slate-100 text-[#6B7280]";
     
+    const hasComments = version.pages.some(p => p.comments && p.comments.length > 0);
+
     if (isHistory) {
       let label = '';
       switch (status) {
         case 'draft': label = '草稿版本'; break;
         case 'published_unread': label = '已发布(未读)'; break;
         case 'reviewing': label = '客户审阅中'; break;
-        case 'reviewed': label = '客户已完成审阅'; break;
+        case 'reviewed': 
+          label = hasComments ? '客户已完成审阅，有评论' : '客户已完成审阅，无评论'; 
+          break;
         case 'historical': label = '历史版本'; break;
         case 'archived': label = '历史存档'; break;
         default: label = status;
@@ -314,7 +321,11 @@ export default function OverviewPage({
       case 'reviewing':
         return <span className={cn(baseClass, "bg-blue-100 text-blue-700")}>客户审阅中</span>;
       case 'reviewed':
-        return <span className={cn(baseClass, "bg-emerald-100 text-emerald-700")}>客户已完成审阅</span>;
+        return (
+          <span className={cn(baseClass, "bg-emerald-100 text-emerald-700")}>
+            {hasComments ? '客户已完成审阅，有评论' : '客户已完成审阅，无评论'}
+          </span>
+        );
       case 'historical':
         return <span className={cn(baseClass, "bg-slate-100 text-[#6B7280]")}>历史版本</span>;
       case 'archived':
@@ -423,7 +434,7 @@ export default function OverviewPage({
                           )}
                         </div>
                       )}
-                      {getStatusBadge(activeVersion.status)}
+                      {getStatusBadge(activeVersion)}
                     </div>
                     <p className="text-[#EF6B00] text-[16px] font-bold mb-2">内部版本 {activeVersion.versionNumber}</p>
                     <p className="text-[#6B7280] text-[16px]">最后更新: {formatDateTime(activeVersion.createdAt)} · 包含 {activeVersion.pages.length} 个页面</p>
@@ -511,7 +522,7 @@ export default function OverviewPage({
           <div className="space-y-4">
             <div className="flex items-center gap-2 mb-4">
               <History className="w-5 h-5 text-[#6B7280]" />
-              <span className="text-[16px] font-bold text-[#6B7280]">历史与已发布版本</span>
+              <span className="text-[16px] font-bold text-[#6B7280]">已发布版本</span>
             </div>
             {historyVersions.length > 0 ? historyVersions.map(version => (
               <div key={version.id} className="bg-white rounded-[24px] shadow-[0_12px_32px_rgba(0,0,0,0.08)] border border-[#E5E7EB] p-6 flex items-center justify-between hover:border-[#EF6B00]/30 transition-colors" style={{ borderRadius: tokens.borderRadius.card, boxShadow: tokens.shadows.card }}>
@@ -520,7 +531,7 @@ export default function OverviewPage({
                     <div className="flex items-center gap-3 mb-1">
                       <h3 className="text-[16px] font-[900] text-[#0A0A0A]">{version.name}</h3>
                       <span className="text-[#6B7280] text-[14px] font-mono">内部版本 {version.versionNumber}</span>
-                      {getStatusBadge(version.status, true)}
+                      {getStatusBadge(version, true)}
                     </div>
                     <p className="text-[#6B7280] text-[16px]">{formatDateTime(version.createdAt)} · {version.pages.length} Pages</p>
                   </div>
@@ -573,13 +584,14 @@ export default function OverviewPage({
                     <FileText className="w-10 h-10 text-white" />
                   </div>
                   <div>
-                    <h3 className="text-[32px] font-[900] text-[#0A0A0A] mb-2">{activeQuotation.name}</h3>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 mb-1">
+                      <h3 className="text-[32px] font-[900] text-[#0A0A0A]">{activeQuotation.name}</h3>
                       {getDocStatusBadge(activeQuotation.status)}
-                      <p className="text-[#6B7280] text-[16px] font-medium">
-                        总额: <span className="text-[#0A0A0A] font-bold">{activeQuotation.totalPrice}</span> · 基于最新正式方案生成
-                      </p>
                     </div>
+                    <p className="text-[#EF6B00] text-[16px] font-bold mb-2">内部版本 {activeQuotation.versionNumber}</p>
+                    <p className="text-[#6B7280] text-[16px] font-medium">
+                      创建时间: {formatDateTime(activeQuotation.createdAt)} · 总额: <span className="text-[#0A0A0A] font-bold">{activeQuotation.totalPrice}</span>
+                    </p>
                     
                     {/* Simulation Buttons for Active Quotation */}
                     <div className="flex gap-2 mt-4">
@@ -651,17 +663,18 @@ export default function OverviewPage({
             <div className="space-y-4">
               <div className="flex items-center gap-2 mb-6">
                 <History className="w-6 h-6 text-[#6B7280]" />
-                <span className="text-[18px] font-bold text-[#6B7280]">历史与已发布版本</span>
+                <span className="text-[18px] font-bold text-[#6B7280]">已发布版本</span>
               </div>
               {historyQuotations.map(q => (
                 <div key={q.id} className="bg-white rounded-[24px] shadow-sm border border-[#E5E7EB] p-8 flex items-center justify-between hover:border-[#EF6B00]/30 hover:shadow-md transition-all group" style={{ borderRadius: tokens.borderRadius.card }}>
                   <div className="flex items-center gap-6">
                     <div className="flex flex-col">
-                      <div className="flex items-center gap-4 mb-2">
-                        <h3 className="text-[20px] font-[900] text-[#0A0A0A]">{q.name}</h3>
+                      <div className="flex items-center gap-3 mb-1">
+                        <h3 className="text-[16px] font-[900] text-[#0A0A0A]">{q.name}</h3>
+                        <span className="text-[#6B7280] text-[14px] font-mono">内部版本 {q.versionNumber}</span>
                         {getDocStatusBadge(q.status)}
                       </div>
-                      <p className="text-[#6B7280] text-[16px] font-medium">{formatDateTime(q.createdAt)} · 总额: <span className="text-[#0A0A0A] font-bold">{q.totalPrice}</span></p>
+                      <p className="text-[#6B7280] text-[16px]">{formatDateTime(q.createdAt)} · 总额: <span className="text-[#0A0A0A] font-bold">{q.totalPrice}</span></p>
                     </div>
                   </div>
                   <button
@@ -682,7 +695,7 @@ export default function OverviewPage({
             <div className="flex items-center gap-3">
               <div className="w-1.5 h-8 bg-[#EF6B00] rounded-full"></div>
               <h2 className="text-[30px] font-[900] text-[#0A0A0A]" style={{ fontWeight: tokens.fontWeight.sectionTitle }}>
-                完工结算管理 {statusNum < 7 && <span className="text-[14px] font-normal text-slate-400 ml-2">(订单进入验收阶段后开启)</span>}
+                交付结算管理 {statusNum < 7 && <span className="text-[14px] font-normal text-slate-400 ml-2">(订单进入验收阶段后开启)</span>}
               </h2>
             </div>
             {!isS04orS08 && statusNum >= 7 && (
@@ -707,13 +720,14 @@ export default function OverviewPage({
                     <Hammer className="w-10 h-10 text-white" />
                   </div>
                   <div>
-                    <h3 className="text-[32px] font-[900] text-[#0A0A0A] mb-2">{activeSettlement.name}</h3>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 mb-1">
+                      <h3 className="text-[32px] font-[900] text-[#0A0A0A]">{activeSettlement.name}</h3>
                       {getDocStatusBadge(activeSettlement.status)}
-                      <p className="text-[#6B7280] text-[16px] font-medium">
-                        总额: <span className="text-[#0A0A0A] font-bold">{activeSettlement.totalPrice}</span> · 项目已进入验收阶段
-                      </p>
                     </div>
+                    <p className="text-[#EF6B00] text-[16px] font-bold mb-2">内部版本 {activeSettlement.versionNumber}</p>
+                    <p className="text-[#6B7280] text-[16px] font-medium">
+                      创建时间: {formatDateTime(activeSettlement.createdAt)} · 总额: <span className="text-[#0A0A0A] font-bold">{activeSettlement.totalPrice}</span>
+                    </p>
 
                     {/* Simulation Buttons for Active Settlement */}
                     <div className="flex gap-2 mt-4">
@@ -785,17 +799,18 @@ export default function OverviewPage({
             <div className="space-y-4">
               <div className="flex items-center gap-2 mb-6">
                 <History className="w-6 h-6 text-[#6B7280]" />
-                <span className="text-[18px] font-bold text-[#6B7280]">历史与已发布版本</span>
+                <span className="text-[18px] font-bold text-[#6B7280]">已发布版本</span>
               </div>
               {historySettlements.map(s => (
                 <div key={s.id} className="bg-white rounded-[24px] shadow-sm border border-[#E5E7EB] p-8 flex items-center justify-between hover:border-[#EF6B00]/30 hover:shadow-md transition-all group" style={{ borderRadius: tokens.borderRadius.card }}>
                   <div className="flex items-center gap-6">
                     <div className="flex flex-col">
-                      <div className="flex items-center gap-4 mb-2">
-                        <h3 className="text-[20px] font-[900] text-[#0A0A0A]">{s.name}</h3>
+                      <div className="flex items-center gap-3 mb-1">
+                        <h3 className="text-[16px] font-[900] text-[#0A0A0A]">{s.name}</h3>
+                        <span className="text-[#6B7280] text-[14px] font-mono">内部版本 {s.versionNumber}</span>
                         {getDocStatusBadge(s.status)}
                       </div>
-                      <p className="text-[#6B7280] text-[16px] font-medium">{formatDateTime(s.createdAt)} · 总额: <span className="text-[#0A0A0A] font-bold">{s.totalPrice}</span></p>
+                      <p className="text-[#6B7280] text-[16px]">{formatDateTime(s.createdAt)} · 总额: <span className="text-[#0A0A0A] font-bold">{s.totalPrice}</span></p>
                     </div>
                   </div>
                   <button

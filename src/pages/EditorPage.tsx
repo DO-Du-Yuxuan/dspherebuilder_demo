@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, Plus, Trash2, Check, X } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Check, X, FileText } from 'lucide-react';
 import Cropper, { Area } from 'react-easy-crop';
 import { cn } from '../utils/cn';
 import { Annotation, PageSnapshot, OrderVersion } from '../types';
@@ -52,6 +52,7 @@ export default function EditorPage({
   const [hoveredAnnotationId, setHoveredAnnotationId] = useState<string | null>(null);
   const [editingAnnotationId, setEditingAnnotationId] = useState<string | null>(null);
   const [visibleAnnotationIds, setVisibleAnnotationIds] = useState<Set<string>>(new Set());
+  const [visibleCommentIds, setVisibleCommentIds] = useState<Set<string>>(new Set());
   
   // Image Crop State
   const [crop, setCrop] = useState({ x: 0, y: 0 });
@@ -59,9 +60,11 @@ export default function EditorPage({
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
   const [showCropModal, setShowCropModal] = useState(false);
   const [imageToCrop, setImageToCrop] = useState<string | null>(null);
+  const [isImageZoomed, setIsImageZoomed] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const leftPanelRef = useRef<HTMLDivElement>(null);
+  const rightPanelRef = useRef<HTMLDivElement>(null);
   const imageContainerRef = useRef<HTMLDivElement>(null);
   const annotationCardRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const [redrawTrigger, setRedrawTrigger] = useState(0);
@@ -76,9 +79,11 @@ export default function EditorPage({
   }
 
   const page = version.pages[currentPageIndex];
-  const isLocked = version.status !== 'draft';
+  const isReadOnlyOrder = order?.status && ['S04', 'S08', 'S11'].includes(order.status);
+  const isLocked = version.status !== 'draft' || isReadOnlyOrder;
+  const showComments = version.status === 'reviewed';
 
-  // Viewport filtering for annotations
+  // Viewport filtering for annotations and comments
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
@@ -87,19 +92,27 @@ export default function EditorPage({
           entries.forEach(entry => {
             const id = entry.target.getAttribute('data-anno-id');
             if (id) {
-              if (entry.isIntersecting) {
-                next.add(id);
-              } else {
-                next.delete(id);
-              }
+              if (entry.isIntersecting) next.add(id);
+              else next.delete(id);
+            }
+          });
+          return next;
+        });
+
+        setVisibleCommentIds(prev => {
+          const next = new Set(prev);
+          entries.forEach(entry => {
+            const id = entry.target.getAttribute('data-comm-id');
+            if (id) {
+              if (entry.isIntersecting) next.add(id);
+              else next.delete(id);
             }
           });
           return next;
         });
       },
       {
-        root: leftPanelRef.current,
-        threshold: 0.9, // Higher threshold to ensure card is well within view
+        threshold: 0.1, 
       }
     );
 
@@ -113,7 +126,17 @@ export default function EditorPage({
         if (el) observer.unobserve(el);
       });
     };
-  }, [page?.annotations, redrawTrigger]);
+  }, [page?.annotations, page?.comments, redrawTrigger]);
+
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsImageZoomed(false);
+      }
+    };
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, []);
 
   const onBack = () => navigate('/overview', { state: { project, order } });
   const onPublish = () => {
@@ -126,10 +149,12 @@ export default function EditorPage({
     const triggerRedraw = () => setRedrawTrigger(prev => prev + 1);
     
     const leftPanel = leftPanelRef.current;
+    const rightPanel = rightPanelRef.current;
     const container = containerRef.current;
     
     window.addEventListener('resize', triggerRedraw);
     leftPanel?.addEventListener('scroll', triggerRedraw);
+    rightPanel?.addEventListener('scroll', triggerRedraw);
     container?.addEventListener('scroll', triggerRedraw);
     
     // Initial trigger
@@ -138,14 +163,15 @@ export default function EditorPage({
     return () => {
       window.removeEventListener('resize', triggerRedraw);
       leftPanel?.removeEventListener('scroll', triggerRedraw);
+      rightPanel?.removeEventListener('scroll', triggerRedraw);
       container?.removeEventListener('scroll', triggerRedraw);
     };
   }, [page]);
 
-  // Redraw when annotations change
+  // Redraw when annotations or comments change
   useEffect(() => {
     setRedrawTrigger(prev => prev + 1);
-  }, [page?.annotations]);
+  }, [page?.annotations, page?.comments]);
 
   const updateCurrentPage = (updatedPage: PageSnapshot) => {
     const newPages = [...version.pages];
@@ -191,7 +217,11 @@ export default function EditorPage({
   };
 
   const handleImageClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!isAddingAnnotation || isLocked || !imageContainerRef.current || !page.imageUrl) return;
+    if (!isAddingAnnotation) {
+      if (page.imageUrl) setIsImageZoomed(true);
+      return;
+    }
+    if (isLocked || !imageContainerRef.current || !page.imageUrl) return;
     const rect = imageContainerRef.current.getBoundingClientRect();
     const x = ((e.clientX - rect.left) / rect.width) * 100;
     const y = ((e.clientY - rect.top) / rect.height) * 100;
@@ -290,36 +320,104 @@ export default function EditorPage({
           d={`M ${startX} ${startY} L ${endX} ${endY}`} 
           fill="none" 
           stroke={isHovered ? "#CC5B00" : "#64748B"} 
-          strokeWidth={isHovered ? "4.5" : "1.5"} 
+          strokeWidth={isHovered ? "3.15" : "1.05"} 
           strokeDasharray="0"
           strokeOpacity={isHovered ? "1" : "0.4"}
           className="transition-all duration-200"
         />
       );
     });
+
+    // Draw lines for customer comments
+    page.comments?.forEach(comm => {
+      if (!visibleCommentIds.has(comm.id)) return;
+
+      const cardEl = annotationCardRefs.current[comm.id];
+      const imageContainer = imageContainerRef.current;
+      const middlePanel = document.getElementById('middle-text-panel');
+      if (!cardEl) return;
+      
+      const cardRect = cardEl.getBoundingClientRect();
+      const startX = cardRect.left - containerRect.left;
+      const startY = cardRect.top - containerRect.top + cardRect.height / 2;
+      
+      let endX = 0;
+      let endY = 0;
+
+      if (comm.targetType === 'image_point' && imageContainer) {
+        const imageRect = imageContainer.getBoundingClientRect();
+        endX = imageRect.left - containerRect.left + (imageRect.width * (comm.point?.x || 0)) / 100;
+        endY = imageRect.top - containerRect.top + (imageRect.height * (comm.point?.y || 0)) / 100;
+      } else if (comm.targetType === 'text_description' && middlePanel) {
+        const middleRect = middlePanel.getBoundingClientRect();
+        endX = middleRect.right - containerRect.left;
+        endY = middleRect.top - containerRect.top + middleRect.height / 2;
+      } else {
+        return;
+      }
+
+      const isHovered = hoveredAnnotationId === comm.id;
+      
+      lines.push(
+        <path 
+          key={`line-comm-${comm.id}`} 
+          d={`M ${startX} ${startY} L ${endX} ${endY}`} 
+          fill="none" 
+          stroke={isHovered ? "#4887FF" : "#64748B"} 
+          strokeWidth={isHovered ? "3.15" : "1.05"} 
+          strokeDasharray="0"
+          strokeOpacity={isHovered ? "1" : "0.4"}
+          className="transition-all duration-200"
+        />
+      );
+    });
+
     return lines;
-  }, [page?.annotations, redrawTrigger, hoveredAnnotationId, visibleAnnotationIds]);
+  }, [page?.annotations, page?.comments, redrawTrigger, hoveredAnnotationId, visibleAnnotationIds, visibleCommentIds]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   return (
     <div className="h-screen w-screen flex flex-col bg-slate-50 font-sans overflow-hidden">
       {/* Top Bar */}
-      <div className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 z-20 shadow-sm">
-        <div className="flex items-center gap-4">
-          <button onClick={onBack} className="p-2 text-slate-500 hover:bg-slate-100 rounded-xl"><ArrowLeft className="w-5 h-5" /></button>
-          <h1 className="font-bold text-lg">{version.name}</h1>
+      <div className="h-16 bg-white border-b border-slate-200 flex items-center px-6 z-20 shadow-sm relative">
+        {/* Left Section */}
+        <div className="flex items-center gap-4 flex-1 min-w-0">
+          <button onClick={onBack} className="p-2 text-slate-500 hover:bg-slate-100 rounded-xl flex-shrink-0">
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <h1 className="font-bold text-lg truncate">{version.name}</h1>
         </div>
         
-        {/* Page Switcher */}
-        <div className="flex items-center gap-2">
+        {/* Center Section - Page Switcher */}
+        <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-2">
           {version.pages.map((p, idx) => (
-            <button key={p.pageId} onClick={() => setCurrentPageIndex(idx)} className={cn("px-4 py-1.5 rounded-xl font-bold", currentPageIndex === idx ? "bg-orange-100 text-orange-700" : "bg-slate-100")}>P{idx + 1}</button>
+            <button 
+              key={p.pageId} 
+              onClick={() => setCurrentPageIndex(idx)} 
+              className={cn(
+                "px-4 py-1.5 rounded-xl font-bold transition-colors", 
+                currentPageIndex === idx ? "bg-orange-100 text-orange-700" : "bg-slate-100 hover:bg-slate-200"
+              )}
+            >
+              P{idx + 1}
+            </button>
           ))}
-          {!isLocked && <button onClick={handleAddPage} className="p-2 bg-slate-100 rounded-xl"><Plus className="w-5 h-5" /></button>}
+          {!isLocked && (
+            <button onClick={handleAddPage} className="p-2 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors">
+              <Plus className="w-5 h-5" />
+            </button>
+          )}
         </div>
 
-        <button onClick={onPublish} className="px-6 py-2 bg-orange-600 text-white rounded-xl font-bold hover:bg-orange-700">发布此版本</button>
+        {/* Right Section */}
+        <div className="flex-1 flex justify-end">
+          {!isLocked && (
+            <button onClick={onPublish} className="px-6 py-2 bg-orange-600 text-white rounded-xl font-bold hover:bg-orange-700 whitespace-nowrap">
+              发布此版本
+            </button>
+          )}
+        </div>
       </div>
 
       {!page ? (
@@ -367,8 +465,9 @@ export default function EditorPage({
                   ref={el => annotationCardRefs.current[anno.id] = el} 
                   onMouseEnter={() => setHoveredAnnotationId(anno.id)}
                   onMouseLeave={() => setHoveredAnnotationId(null)}
+                  onClick={() => scrollToAnnotation(anno.id)}
                   className={cn(
-                    "border rounded-2xl p-4 mb-4 transition-all",
+                    "border rounded-2xl p-4 mb-4 transition-all cursor-pointer",
                     hoveredAnnotationId === anno.id ? "border-orange-600 bg-orange-50/30" : "border-slate-200 bg-slate-50",
                     editingAnnotationId === anno.id ? "ring-2 ring-orange-600 ring-offset-2" : ""
                   )}
@@ -376,7 +475,10 @@ export default function EditorPage({
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
                       <div className="w-6 h-6 bg-orange-600 text-white rounded-full flex items-center justify-center font-bold text-xs">{idx + 1}</div>
-                      <span className="font-bold">注释 {idx + 1}</span>
+                      <div className="flex flex-col">
+                        <span className="font-bold text-sm">注释 {idx + 1}</span>
+                        <span className="text-[10px] text-slate-400">{anno.authorName || '杜宇轩'} · {anno.createdAt}</span>
+                      </div>
                     </div>
                     {!isLocked && (
                       <div className="flex items-center gap-1">
@@ -435,15 +537,17 @@ export default function EditorPage({
             <div className="bg-white rounded-3xl p-4 shadow-sm border border-slate-200 flex items-center justify-center">
               <input 
                 maxLength={30} 
+                readOnly={isLocked}
                 value={page.title} 
                 onChange={(e) => updateCurrentPage({ ...page, title: e.target.value })} 
                 className="w-full text-4xl font-bold outline-none text-center" 
                 placeholder="请输入标题"
               />
             </div>
-            <div className="bg-white rounded-3xl p-4 shadow-sm border border-slate-200">
+            <div id="middle-text-panel" className="bg-white rounded-3xl p-4 shadow-sm border border-slate-200">
               <textarea 
                 maxLength={150} 
+                readOnly={isLocked}
                 value={page.text} 
                 onChange={(e) => updateCurrentPage({ ...page, text: e.target.value })} 
                 className="w-full h-24 outline-none resize-none text-lg leading-relaxed" 
@@ -452,7 +556,7 @@ export default function EditorPage({
               />
               <div className="text-xs text-slate-400 text-right">{page.text.length}/150</div>
             </div>
-            <div className="flex-1 bg-white rounded-3xl p-6 shadow-sm border border-slate-200 relative group min-h-[400px]" ref={imageContainerRef} onClick={handleImageClick}>
+            <div className="flex-1 bg-white rounded-3xl p-6 shadow-sm border border-slate-200 relative group min-h-[400px] cursor-pointer" ref={imageContainerRef} onClick={handleImageClick}>
               {page.imageUrl ? (
                 <img src={page.imageUrl || undefined} className="w-full h-full object-contain" />
               ) : (
@@ -483,6 +587,27 @@ export default function EditorPage({
                 </div>
               ))}
               
+              {showComments && page.comments.map((comm, idx) => (
+                comm.targetType === 'image_point' && (
+                  <div 
+                    key={comm.id} 
+                    onMouseEnter={() => setHoveredAnnotationId(comm.id)}
+                    onMouseLeave={() => setHoveredAnnotationId(null)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      scrollToAnnotation(comm.id);
+                    }}
+                    className={cn(
+                      "absolute w-[22px] h-[22px] rounded-full border-2 border-white -translate-x-1/2 -translate-y-1/2 flex items-center justify-center font-bold text-[10px] text-white cursor-pointer z-40 transition-all", 
+                      hoveredAnnotationId === comm.id ? "bg-blue-700 scale-125 shadow-lg shadow-blue-700/40" : "bg-blue-500 hover:bg-blue-600"
+                    )} 
+                    style={{ left: `${comm.point?.x}%`, top: `${comm.point?.y}%` }}
+                  >
+                    {idx + 1}
+                  </div>
+                )
+              ))}
+              
               {!isLocked && (
                 <div className={cn("absolute top-4 right-4 transition-opacity", page.imageUrl ? "opacity-0 group-hover:opacity-100" : "opacity-100")}>
                   <button 
@@ -509,13 +634,71 @@ export default function EditorPage({
 
           {/* Right Column */}
           <div className="w-1/4 flex flex-col gap-4 z-20">
-            <div className="flex-1 bg-white rounded-3xl shadow-sm border border-slate-200 p-5 overflow-y-auto">
+            <div 
+              ref={rightPanelRef}
+              className="flex-1 bg-white rounded-3xl shadow-sm border border-slate-200 p-5 overflow-y-auto custom-scrollbar"
+            >
               <h2 className="font-bold text-lg mb-4">客户反馈参考</h2>
-              {page.comments.map(c => (
-                <div key={c.id} className="bg-blue-50 border border-blue-100 rounded-2xl p-4 mb-4">
-                  <p className="text-sm">{c.content}</p>
+              {showComments ? (
+                <>
+                  {(() => {
+                    const sortedComments = [...page.comments].sort((a, b) => {
+                      if (a.targetType === 'text_description' && b.targetType !== 'text_description') return -1;
+                      if (a.targetType !== 'text_description' && b.targetType === 'text_description') return 1;
+                      return 0;
+                    });
+                    const textDescCount = page.comments.filter(c => c.targetType === 'text_description').length;
+                    
+                    return sortedComments.map((c, idx) => {
+                      const isTextDesc = c.targetType === 'text_description';
+                      const displayIdx = isTextDesc ? 0 : idx + 1 - textDescCount;
+                      
+                      return (
+                        <div 
+                          key={c.id} 
+                          data-comm-id={c.id}
+                          ref={el => annotationCardRefs.current[c.id] = el}
+                          onMouseEnter={() => setHoveredAnnotationId(c.id)}
+                          onMouseLeave={() => setHoveredAnnotationId(null)}
+                          onClick={() => scrollToAnnotation(c.id)}
+                          className={cn(
+                            "border rounded-2xl p-4 mb-4 transition-all cursor-pointer",
+                            hoveredAnnotationId === c.id ? "border-blue-600 bg-blue-50/30" : "border-slate-200 bg-slate-50"
+                          )}
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              {isTextDesc ? (
+                                <div className="w-6 h-6 bg-blue-600 text-white rounded-lg flex items-center justify-center">
+                                  <FileText className="w-3.5 h-3.5" />
+                                </div>
+                              ) : (
+                                <div className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold text-xs">{displayIdx}</div>
+                              )}
+                              <div className="flex flex-col">
+                                <span className="font-bold text-sm">{isTextDesc ? '文字描述反馈' : `反馈 ${displayIdx}`}</span>
+                                <span className="text-[10px] text-slate-400">{c.authorName || '业主 - 刘先生'} · {c.createdAt}</span>
+                              </div>
+                            </div>
+                          </div>
+                          <p className="text-sm text-slate-600 leading-relaxed">
+                            {c.content}
+                          </p>
+                        </div>
+                      );
+                    });
+                  })()}
+                  {page.comments.length === 0 && (
+                    <div className="py-12 text-center text-slate-400 italic text-sm">
+                      暂无客户反馈
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="py-12 text-center text-slate-400 italic text-sm">
+                  客户尚未完成审阅，反馈评价暂不可见
                 </div>
-              ))}
+              )}
             </div>
           </div>
         </div>
@@ -532,6 +715,28 @@ export default function EditorPage({
               <button onClick={() => setShowCropModal(false)} className="px-6 py-2">取消</button>
               <button onClick={saveCroppedImage} className="px-6 py-2 bg-orange-600 text-white rounded-xl">确认裁切</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Image Zoom Overlay */}
+      {isImageZoomed && page.imageUrl && (
+        <div 
+          className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-8 animate-in fade-in duration-200"
+          onClick={() => setIsImageZoomed(false)}
+        >
+          <div className="relative w-[80vw] h-[80vh] flex items-center justify-center">
+            <img 
+              src={page.imageUrl} 
+              className="max-w-full max-h-full object-contain shadow-2xl rounded-lg"
+              onClick={(e) => e.stopPropagation()}
+            />
+            <button 
+              className="absolute -top-12 right-0 text-white hover:text-orange-500 transition-colors"
+              onClick={() => setIsImageZoomed(false)}
+            >
+              <X className="w-8 h-8" />
+            </button>
           </div>
         </div>
       )}
