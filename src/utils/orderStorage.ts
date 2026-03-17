@@ -47,7 +47,7 @@ const INITIAL_ORDERS: Order[] = [
             order: 1,
             title: '餐厅设计方案',
             text: '这组设计呈现了极致的侘寂风美学。空间大量运用微水泥、粗犷的原木和原始陶艺，通过质朴的肌理传达岁月的沉静。错落排布的编织灯饰不仅是视觉焦点，更散发出柔和的暖光，构建出一个逃离城市喧嚣、回归自然本质的沉浸式禅意交流空间。',
-            imageUrl: '/images/unwatermarked_Gemini_Generated_Image_6gxyu16gxyu16gxy.png',
+            imageUrl: '/images/Gemini_Generated_Image_6gxyu16gxyu16gxy.png',
             annotations: [
               {
                 id: 'anno-1',
@@ -84,7 +84,7 @@ const INITIAL_ORDERS: Order[] = [
             order: 2,
             title: '客餐厅方案',
             text: '该方案展现了充满建筑张力的现代设计。清水混凝土墙面与冷峻的大理石长桌奠定了空间的理性基调，而爱马仕橙皮质餐椅与精致的金属编织吊灯则巧妙地注入了温度与质感。冷暖材质的极致碰撞，在利落的几何线条下勾勒出低调、奢华且富有力量感的审美格调。',
-            imageUrl: '/images/Gemini_Generated_Image_uswrceuswrceuswr.png',
+            imageUrl: '/images/unwatermarked_Gemini_Generated_Image_uswrceuswrceuswr.png',
             annotations: [
               {
                 id: 'anno-2',
