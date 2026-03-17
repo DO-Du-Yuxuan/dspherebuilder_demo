@@ -19,18 +19,47 @@ import { getCurrentUser, logout } from "../utils/authUtils";
 import "../styles/quotation.css";
 
 // --- Types ---
-interface SettlementItem {
+interface DesignItem {
   id: number;
-  epcCode: string;
-  orderType: string;
-  salesOrder: string;
+  code: string;
+  type: string;
+  name: string;
+  deliverable: string;
+  format: string;
+  unitPrice: number;
   unit: string;
-  quotationQuantity: number;
-  quotationUnitPrice: number;
-  quotationAmount: number;
-  settlementQuantity: number;
-  settlementAmount: number;
-  settlementRemark: string;
+  quantity: number;
+  totalPrice: number;
+}
+
+interface ProductItem {
+  id: number;
+  code: string;
+  type: string;
+  label: string;
+  brand: string;
+  spec: string;
+  size: string;
+  image: string;
+  unit: string;
+  quantity: number;
+  unitPrice: number;
+  totalPrice: number;
+}
+
+interface ConstructionItem {
+  id: number;
+  code: string;
+  name: string;
+  deliverable: string;
+  acceptance: string;
+  unitPrice: number;
+  unit: string;
+  quantity: number;
+  mgmtRate: string;
+  mgmtFee: number;
+  totalPrice: number;
+  remark: string;
 }
 
 // --- Mock Data ---
@@ -41,119 +70,83 @@ const MOCK_DATA = {
     address: "杭州市滨江区龙湖璟宸府12号楼1001室",
   },
   pricing: {
-    design: 36000,
-    product: 156000,
-    construction: 88000,
-    total: 280000,
+    design: 8000,
+    product: 34000,
+    construction: 23940,
+    total: 65940,
   },
   designItems: [
     {
       id: 1,
-      epcCode: "E-1001",
-      orderType: "PSO-E 高端设计",
-      salesOrder: "SO2026031301",
+      code: "E-1001",
+      type: "QT- O 订购",
+      name: "平面布局设计",
+      deliverable: "-",
+      format: "-",
+      unitPrice: 8000,
       unit: "套",
-      quotationQuantity: 1,
-      quotationUnitPrice: 8000,
-      quotationAmount: 8000,
-      settlementQuantity: 1,
-      settlementAmount: 8000,
-      settlementRemark: "按原方案交付",
-    },
-    {
-      id: 2,
-      epcCode: "E-1002",
-      orderType: "PSO-E 高端设计",
-      salesOrder: "SO2026031301",
-      unit: "张",
-      quotationQuantity: 4,
-      quotationUnitPrice: 3000,
-      quotationAmount: 12000,
-      settlementQuantity: 4,
-      settlementAmount: 12000,
-      settlementRemark: "加急渲染已完成",
-    },
-    {
-      id: 3,
-      epcCode: "E-1003",
-      orderType: "PSO-E 高端设计",
-      salesOrder: "SO2026031301",
-      unit: "套",
-      quotationQuantity: 1,
-      quotationUnitPrice: 12000,
-      quotationAmount: 12000,
-      settlementQuantity: 1,
-      settlementAmount: 12000,
-      settlementRemark: "全套图纸已存档",
-    },
-    {
-      id: 4,
-      epcCode: "E-1004",
-      orderType: "PSO-E 高端设计",
-      salesOrder: "SO2026031301",
-      unit: "套",
-      quotationQuantity: 1,
-      quotationUnitPrice: 4000,
-      quotationAmount: 4000,
-      settlementQuantity: 1,
-      settlementAmount: 4000,
-      settlementRemark: "选样已确认",
+      quantity: 1,
+      totalPrice: 8000,
     },
   ],
   productItems: [
     {
       id: 1,
-      epcCode: "P-2001",
-      orderType: "PSO-P 严选精品",
-      salesOrder: "SO2026031302",
+      code: "P-2001",
+      type: "QT- O 订购",
+      label: "客厅瓷砖（800x800mm）",
+      brand: "马可波罗",
+      spec: "-",
+      size: "-",
+      image: "-",
       unit: "㎡",
-      quotationQuantity: 40,
-      quotationUnitPrice: 280,
-      quotationAmount: 11200,
-      settlementQuantity: 40,
-      settlementAmount: 11200,
-      settlementRemark: "型号：马可波罗M123",
+      quantity: 40,
+      unitPrice: 280,
+      totalPrice: 11200,
     },
     {
       id: 2,
-      epcCode: "P-2002",
-      orderType: "PSO-P 严选精品",
-      salesOrder: "SO2026031302",
+      code: "P-2002",
+      type: "QT- O 订购",
+      label: "实木复合地板",
+      brand: "圣象",
+      spec: "-",
+      size: "-",
+      image: "-",
       unit: "㎡",
-      quotationQuantity: 60,
-      quotationUnitPrice: 380,
-      quotationAmount: 22800,
-      settlementQuantity: 60,
-      settlementAmount: 22800,
-      settlementRemark: "型号：圣象S456",
+      quantity: 60,
+      unitPrice: 380,
+      totalPrice: 22800,
     },
   ],
   constructionItems: [
     {
       id: 1,
-      epcCode: "C-3001",
-      orderType: "PSO-C 匠心施工",
-      salesOrder: "SO2026031303",
+      code: "C-3001",
+      name: "墙体拆除与新建",
+      deliverable: "-",
+      acceptance: "现场验收",
+      unitPrice: 180,
       unit: "㎡",
-      quotationQuantity: 25,
-      quotationUnitPrice: 180,
-      quotationAmount: 4500,
-      settlementQuantity: 25,
-      settlementAmount: 4500,
-      settlementRemark: "已完工验收",
+      quantity: 25,
+      mgmtRate: "8%",
+      mgmtFee: 360,
+      totalPrice: 4500,
+      remark: "-",
     },
     {
       id: 2,
-      epcCode: "C-3002",
-      orderType: "PSO-C 匠心施工",
-      salesOrder: "SO2026031303",
+      code: "C-3002",
+      name: "水电改造工程",
+      deliverable: "-",
+      acceptance: "隐蔽工程验收",
+      unitPrice: 150,
       unit: "㎡",
-      quotationQuantity: 120,
-      quotationUnitPrice: 150,
-      quotationAmount: 18000,
-      settlementQuantity: 120,
-      settlementAmount: 18000,
-      settlementRemark: "强弱电布线完成",
+      quantity: 120,
+      mgmtRate: "8%",
+      mgmtFee: 1440,
+      totalPrice: 19440,
+      remark: "含强弱电布线",
     },
   ],
 };
@@ -175,74 +168,13 @@ function TableHeader({ colorClass, title, icon: Icon }: { colorClass: string; ti
   );
 }
 
-function DetailTable({ 
-  items, 
-  total, 
-  borderColor, 
-  headerBg, 
-  footerTextColor,
-  summaryText
-}: { 
-  items: SettlementItem[]; 
-  total: number;
-  borderColor: string;
-  headerBg: string;
-  footerTextColor: string;
-  summaryText: string;
-}) {
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full">
-        <thead>
-          <tr className={`border-b-2 ${borderColor} ${headerBg}`}>
-            <th className="text-left py-4 px-4 text-[12px] font-bold text-[#0A0A0A] rounded-tl-xl whitespace-nowrap">序号</th>
-            <th className="text-left py-4 px-4 text-[12px] font-bold text-[#0A0A0A] whitespace-nowrap">EPC明细编码</th>
-            <th className="text-left py-4 px-4 text-[12px] font-bold text-[#0A0A0A] whitespace-nowrap">工单类型</th>
-            <th className="text-left py-4 px-4 text-[12px] font-bold text-[#0A0A0A] whitespace-nowrap">销售订单</th>
-            <th className="text-left py-4 px-4 text-[12px] font-bold text-[#0A0A0A] whitespace-nowrap">报价单位</th>
-            <th className="text-right py-4 px-4 text-[12px] font-bold text-[#0A0A0A] whitespace-nowrap">报价数量</th>
-            <th className="text-right py-4 px-4 text-[12px] font-bold text-[#0A0A0A] whitespace-nowrap">报价单价</th>
-            <th className="text-right py-4 px-4 text-[12px] font-bold text-[#0A0A0A] whitespace-nowrap">报价金额</th>
-            <th className="text-right py-4 px-4 text-[12px] font-bold text-[#0A0A0A] whitespace-nowrap">结算数量</th>
-            <th className="text-right py-4 px-4 text-[12px] font-bold text-[#0A0A0A] whitespace-nowrap">结算金额</th>
-            <th className="text-left py-4 px-4 text-[12px] font-bold text-[#0A0A0A] rounded-tr-xl whitespace-nowrap">结算说明</th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((item, index) => (
-            <tr key={item.id} className={`border-b border-[#E5E7EB] hover:${headerBg}/30 transition-colors`}>
-              <td className="py-4 px-4 text-[16px] text-[#0A0A0A]">{index + 1}</td>
-              <td className="py-4 px-4 text-[16px] text-[#0A0A0A] whitespace-nowrap">{item.epcCode}</td>
-              <td className="py-4 px-4 text-[16px] text-[#0A0A0A] whitespace-nowrap">{item.orderType}</td>
-              <td className="py-4 px-4 text-[16px] text-[#0A0A0A] whitespace-nowrap">{item.salesOrder}</td>
-              <td className="py-4 px-4 text-[16px] text-[#0A0A0A]">{item.unit}</td>
-              <td className="py-4 px-4 text-[16px] text-[#0A0A0A] text-right">{item.quotationQuantity}</td>
-              <td className="py-4 px-4 text-[16px] text-[#0A0A0A] text-right">{item.quotationUnitPrice.toLocaleString()}</td>
-              <td className="py-4 px-4 text-[16px] text-[#0A0A0A] text-right">{item.quotationAmount.toLocaleString()}</td>
-              <td className="py-4 px-4 text-[16px] text-[#0A0A0A] text-right">{item.settlementQuantity}</td>
-              <td className="py-4 px-4 text-[16px] font-semibold text-[#0A0A0A] text-right">{item.settlementAmount.toLocaleString()}</td>
-              <td className="py-4 px-4 text-[16px] text-[#0A0A0A] min-w-[150px]">{item.settlementRemark}</td>
-            </tr>
-          ))}
-        </tbody>
-        <tfoot>
-          <tr className={`${headerBg} border-t-2 ${borderColor}`}>
-            <td colSpan={10} className="py-4 px-4 text-[16px] font-bold text-[#0A0A0A] text-right rounded-bl-xl">{summaryText}</td>
-            <td className={`py-4 px-4 text-[30px] font-black ${footerTextColor} text-right rounded-br-xl`}>¥{total.toLocaleString()}</td>
-          </tr>
-        </tfoot>
-      </table>
-    </div>
-  );
-}
-
 function DesignDetails({ 
   items, 
   total, 
-  title = "高端设计结算明细",
-  summaryText = "设计费用结算合计："
+  title = "高端设计报价明细",
+  summaryText = "设计费用报价合计："
 }: { 
-  items: SettlementItem[]; 
+  items: DesignItem[]; 
   total: number; 
   title?: string;
   summaryText?: string;
@@ -250,14 +182,46 @@ function DesignDetails({
   return (
     <div className="bg-white rounded-[24px] shadow-sm p-6 border border-[#E5E7EB] mb-8">
       <TableHeader colorClass="bg-[#4887FF]" title={title} icon={Pencil} />
-      <DetailTable 
-        items={items} 
-        total={total} 
-        borderColor="border-[#4887FF]/20" 
-        headerBg="bg-blue-50" 
-        footerTextColor="text-[#4887FF]"
-        summaryText={summaryText}
-      />
+      <div className="overflow-x-auto">
+        <table className="w-full">
+          <thead>
+            <tr className="border-b-2 border-[#4887FF]/20 bg-blue-50">
+              <th className="text-left py-4 px-4 text-[12px] font-bold text-[#0A0A0A] rounded-tl-xl whitespace-nowrap">序号</th>
+              <th className="text-left py-4 px-4 text-[12px] font-bold text-[#0A0A0A] whitespace-nowrap">高端设计明细编码</th>
+              <th className="text-left py-4 px-4 text-[12px] font-bold text-[#0A0A0A] whitespace-nowrap">报价单类型</th>
+              <th className="text-left py-4 px-4 text-[12px] font-bold text-[#0A0A0A] whitespace-nowrap">服务名称</th>
+              <th className="text-left py-4 px-4 text-[12px] font-bold text-[#0A0A0A] whitespace-nowrap">交付成果</th>
+              <th className="text-left py-4 px-4 text-[12px] font-bold text-[#0A0A0A] whitespace-nowrap">交付形式</th>
+              <th className="text-right py-4 px-4 text-[12px] font-bold text-[#0A0A0A] whitespace-nowrap">服务单价 CNY</th>
+              <th className="text-left py-4 px-4 text-[12px] font-bold text-[#0A0A0A] whitespace-nowrap">服务单位</th>
+              <th className="text-right py-4 px-4 text-[12px] font-bold text-[#0A0A0A] whitespace-nowrap">服务数量</th>
+              <th className="text-right py-4 px-4 text-[12px] font-bold text-[#0A0A0A] rounded-tr-xl whitespace-nowrap">服务明细总价 CNY</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((item, index) => (
+              <tr key={item.id} className="border-b border-[#E5E7EB] hover:bg-blue-50/30 transition-colors">
+                <td className="py-4 px-4 text-[16px] text-[#0A0A0A]">{index + 1}</td>
+                <td className="py-4 px-4 text-[16px] text-[#0A0A0A] whitespace-nowrap">{item.code}</td>
+                <td className="py-4 px-4 text-[16px] text-[#0A0A0A] whitespace-nowrap">{item.type}</td>
+                <td className="py-4 px-4 text-[16px] text-[#0A0A0A] whitespace-nowrap">{item.name}</td>
+                <td className="py-4 px-4 text-[16px] text-[#0A0A0A]">{item.deliverable}</td>
+                <td className="py-4 px-4 text-[16px] text-[#0A0A0A]">{item.format}</td>
+                <td className="py-4 px-4 text-[16px] text-[#0A0A0A] text-right">{item.unitPrice.toLocaleString()}</td>
+                <td className="py-4 px-4 text-[16px] text-[#0A0A0A]">{item.unit}</td>
+                <td className="py-4 px-4 text-[16px] text-[#0A0A0A] text-right">{item.quantity}</td>
+                <td className="py-4 px-4 text-[16px] font-semibold text-[#0A0A0A] text-right">{item.totalPrice.toLocaleString()}</td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr className="bg-blue-50 border-t-2 border-[#4887FF]/20">
+              <td colSpan={9} className="py-4 px-4 text-[16px] font-bold text-[#0A0A0A] text-right rounded-bl-xl">{summaryText}</td>
+              <td className="py-4 px-4 text-[30px] font-black text-[#4887FF] text-right rounded-br-xl">¥{total.toLocaleString()}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
     </div>
   );
 }
@@ -265,10 +229,10 @@ function DesignDetails({
 function ProductDetails({ 
   items, 
   total, 
-  title = "严选精品结算明细",
-  summaryText = "货品费用结算合计："
+  title = "严选精品报价明细",
+  summaryText = "货品费用报价合计："
 }: { 
-  items: SettlementItem[]; 
+  items: ProductItem[]; 
   total: number; 
   title?: string;
   summaryText?: string;
@@ -276,14 +240,50 @@ function ProductDetails({
   return (
     <div className="bg-white rounded-[24px] shadow-sm p-6 border border-[#E5E7EB] mb-8">
       <TableHeader colorClass="bg-[#10B981]" title={title} icon={Package} />
-      <DetailTable 
-        items={items} 
-        total={total} 
-        borderColor="border-[#10B981]/20" 
-        headerBg="bg-green-50" 
-        footerTextColor="text-[#10B981]"
-        summaryText={summaryText}
-      />
+      <div className="overflow-x-auto">
+        <table className="w-full">
+          <thead>
+            <tr className="border-b-2 border-[#10B981]/20 bg-green-50">
+              <th className="text-left py-4 px-4 text-[12px] font-bold text-[#0A0A0A] rounded-tl-xl whitespace-nowrap">序号</th>
+              <th className="text-left py-4 px-4 text-[12px] font-bold text-[#0A0A0A] whitespace-nowrap">严选臻品明细编码</th>
+              <th className="text-left py-4 px-4 text-[12px] font-bold text-[#0A0A0A] whitespace-nowrap">报价单类型</th>
+              <th className="text-left py-4 px-4 text-[12px] font-bold text-[#0A0A0A] whitespace-nowrap">产品标签</th>
+              <th className="text-left py-4 px-4 text-[12px] font-bold text-[#0A0A0A] whitespace-nowrap">品牌</th>
+              <th className="text-left py-4 px-4 text-[12px] font-bold text-[#0A0A0A] whitespace-nowrap">产品规格</th>
+              <th className="text-left py-4 px-4 text-[12px] font-bold text-[#0A0A0A] whitespace-nowrap">产品尺寸</th>
+              <th className="text-left py-4 px-4 text-[12px] font-bold text-[#0A0A0A] whitespace-nowrap">产品附图</th>
+              <th className="text-left py-4 px-4 text-[12px] font-bold text-[#0A0A0A] whitespace-nowrap">产品单位</th>
+              <th className="text-right py-4 px-4 text-[12px] font-bold text-[#0A0A0A] whitespace-nowrap">产品数量</th>
+              <th className="text-right py-4 px-4 text-[12px] font-bold text-[#0A0A0A] whitespace-nowrap">产品含税单价 CNY</th>
+              <th className="text-right py-4 px-4 text-[12px] font-bold text-[#0A0A0A] rounded-tr-xl whitespace-nowrap">产品含税总价 CNY</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((item, index) => (
+              <tr key={item.id} className="border-b border-[#E5E7EB] hover:bg-green-50/30 transition-colors">
+                <td className="py-4 px-4 text-[16px] text-[#0A0A0A]">{index + 1}</td>
+                <td className="py-4 px-4 text-[16px] text-[#0A0A0A] whitespace-nowrap">{item.code}</td>
+                <td className="py-4 px-4 text-[16px] text-[#0A0A0A] whitespace-nowrap">{item.type}</td>
+                <td className="py-4 px-4 text-[16px] text-[#0A0A0A] whitespace-nowrap">{item.label}</td>
+                <td className="py-4 px-4 text-[16px] text-[#0A0A0A] whitespace-nowrap">{item.brand}</td>
+                <td className="py-4 px-4 text-[16px] text-[#0A0A0A] whitespace-nowrap">{item.spec}</td>
+                <td className="py-4 px-4 text-[16px] text-[#0A0A0A] whitespace-nowrap">{item.size}</td>
+                <td className="py-4 px-4 text-[16px] text-[#0A0A0A] whitespace-nowrap">{item.image}</td>
+                <td className="py-4 px-4 text-[16px] text-[#0A0A0A]">{item.unit}</td>
+                <td className="py-4 px-4 text-[16px] text-[#0A0A0A] text-right">{item.quantity}</td>
+                <td className="py-4 px-4 text-[16px] text-[#0A0A0A] text-right">{item.unitPrice.toLocaleString()}</td>
+                <td className="py-4 px-4 text-[16px] font-semibold text-[#0A0A0A] text-right">{item.totalPrice.toLocaleString()}</td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr className="bg-green-50 border-t-2 border-[#10B981]/20">
+              <td colSpan={11} className="py-4 px-4 text-[16px] font-bold text-[#0A0A0A] text-right rounded-bl-xl">{summaryText}</td>
+              <td className="py-4 px-4 text-[30px] font-black text-[#10B981] text-right rounded-br-xl">¥{total.toLocaleString()}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
     </div>
   );
 }
@@ -291,10 +291,10 @@ function ProductDetails({
 function ConstructionDetails({ 
   items, 
   total, 
-  title = "匠心施工结算明细",
-  summaryText = "施工费用结算合计："
+  title = "匠心施工报价明细",
+  summaryText = "施工费用报价合计："
 }: { 
-  items: SettlementItem[]; 
+  items: ConstructionItem[]; 
   total: number; 
   title?: string;
   summaryText?: string;
@@ -302,14 +302,50 @@ function ConstructionDetails({
   return (
     <div className="bg-white rounded-[24px] shadow-sm p-6 border border-[#E5E7EB] mb-8">
       <TableHeader colorClass="bg-[#8B5CF6]" title={title} icon={Hammer} />
-      <DetailTable 
-        items={items} 
-        total={total} 
-        borderColor="border-[#8B5CF6]/20" 
-        headerBg="bg-purple-50" 
-        footerTextColor="text-[#8B5CF6]"
-        summaryText={summaryText}
-      />
+      <div className="overflow-x-auto">
+        <table className="w-full">
+          <thead>
+            <tr className="border-b-2 border-[#8B5CF6]/20 bg-purple-50">
+              <th className="text-left py-4 px-4 text-[12px] font-bold text-[#0A0A0A] rounded-tl-xl whitespace-nowrap">序号</th>
+              <th className="text-left py-4 px-4 text-[12px] font-bold text-[#0A0A0A] whitespace-nowrap">匠心施工明细编码</th>
+              <th className="text-left py-4 px-4 text-[12px] font-bold text-[#0A0A0A] whitespace-nowrap">服务名称</th>
+              <th className="text-left py-4 px-4 text-[12px] font-bold text-[#0A0A0A] whitespace-nowrap">交付成果</th>
+              <th className="text-left py-4 px-4 text-[12px] font-bold text-[#0A0A0A] whitespace-nowrap">验收方式</th>
+              <th className="text-right py-4 px-4 text-[12px] font-bold text-[#0A0A0A] whitespace-nowrap">服务单价 CNY</th>
+              <th className="text-left py-4 px-4 text-[12px] font-bold text-[#0A0A0A] whitespace-nowrap">服务单位</th>
+              <th className="text-right py-4 px-4 text-[12px] font-bold text-[#0A0A0A] whitespace-nowrap">服务数量</th>
+              <th className="text-right py-4 px-4 text-[12px] font-bold text-[#0A0A0A] whitespace-nowrap">工程管理费比例</th>
+              <th className="text-right py-4 px-4 text-[12px] font-bold text-[#0A0A0A] whitespace-nowrap">工程管理服务费</th>
+              <th className="text-right py-4 px-4 text-[12px] font-bold text-[#0A0A0A] whitespace-nowrap">服务明细总价 CNY</th>
+              <th className="text-left py-4 px-4 text-[12px] font-bold text-[#0A0A0A] rounded-tr-xl whitespace-nowrap">明细报价备注</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((item, index) => (
+              <tr key={item.id} className="border-b border-[#E5E7EB] hover:bg-purple-50/30 transition-colors">
+                <td className="py-4 px-4 text-[16px] text-[#0A0A0A]">{index + 1}</td>
+                <td className="py-4 px-4 text-[16px] text-[#0A0A0A] whitespace-nowrap">{item.code}</td>
+                <td className="py-4 px-4 text-[16px] text-[#0A0A0A] whitespace-nowrap">{item.name}</td>
+                <td className="py-4 px-4 text-[16px] text-[#0A0A0A]">{item.deliverable}</td>
+                <td className="py-4 px-4 text-[16px] text-[#0A0A0A] whitespace-nowrap">{item.acceptance}</td>
+                <td className="py-4 px-4 text-[16px] text-[#0A0A0A] text-right">{item.unitPrice.toLocaleString()}</td>
+                <td className="py-4 px-4 text-[16px] text-[#0A0A0A]">{item.unit}</td>
+                <td className="py-4 px-4 text-[16px] text-[#0A0A0A] text-right">{item.quantity}</td>
+                <td className="py-4 px-4 text-[16px] text-[#0A0A0A] text-right">{item.mgmtRate}</td>
+                <td className="py-4 px-4 text-[16px] text-[#0A0A0A] text-right">{item.mgmtFee.toLocaleString()}</td>
+                <td className="py-4 px-4 text-[16px] font-semibold text-[#0A0A0A] text-right">{item.totalPrice.toLocaleString()}</td>
+                <td className="py-4 px-4 text-[16px] text-[#0A0A0A] min-w-[150px]">{item.remark}</td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr className="bg-purple-50 border-t-2 border-[#8B5CF6]/20">
+              <td colSpan={11} className="py-4 px-4 text-[16px] font-bold text-[#0A0A0A] text-right rounded-bl-xl">{summaryText}</td>
+              <td className="py-4 px-4 text-[30px] font-black text-[#8B5CF6] text-right rounded-br-xl">¥{total.toLocaleString()}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
     </div>
   );
 }
@@ -447,14 +483,50 @@ export default function QuotationPage() {
 
         {/* Footer Text & Confirm */}
         <div className="bg-white rounded-[24px] shadow-card p-8 mt-12 border border-[#E5E7EB]">
-          <div className="flex items-center gap-2 mb-4">
-            <div className="w-1 h-6 bg-[#EF6B00] rounded-full"></div>
-            <h3 className="font-black text-[#0A0A0A] text-[30px]">感谢您对居梦科技的支持与信任!</h3>
-          </div>
-          <div className="text-[16px] text-[#0A0A0A] leading-relaxed space-y-4 mb-8">
-            <p>基于您在方案阶段已经确定的内容,我司现针对相关服务内容进行报价确认。</p>
-            <p>本报价单所列金额为财务已核算金额,并已根据合同条款、阶段性沟通结果及相关调整事项进行确认。</p>
-            <p>请您仔细核对以下各项报价费用。若您有任何疑问或异议,请您于收到本报价单后三个工作日内提出,以便及时协商解决。</p>
+          <div className="space-y-10">
+            {/* Payment Info */}
+            <div>
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-1 h-6 bg-[#EF6B00] rounded-full"></div>
+                <h3 className="font-black text-[#0A0A0A] text-[30px]">您可向居梦科技对公收款账户付款：</h3>
+              </div>
+              <div className="text-[16px] text-[#0A0A0A] space-y-3 ml-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-1.5 h-1.5 bg-[#EF6B00] rounded-full"></div>
+                  <p><span className="font-bold">账户名称：</span>居梦科技（深圳）有限公司</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="w-1.5 h-1.5 bg-[#EF6B00] rounded-full"></div>
+                  <p><span className="font-bold">账户号码：</span>755953465810902</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="w-1.5 h-1.5 bg-[#EF6B00] rounded-full"></div>
+                  <p><span className="font-bold">开户银行：</span>招商银行深圳分行滨海支行</p>
+                </div>
+              </div>
+            </div>
+
+            {/* EPC Order Remarks */}
+            <div>
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-1 h-6 bg-[#EF6B00] rounded-full"></div>
+                <h3 className="font-black text-[#0A0A0A] text-[30px]">EPC 订单报价备注：</h3>
+              </div>
+              <div className="text-[16px] text-[#0A0A0A] space-y-3 ml-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-1.5 h-1.5 bg-[#EF6B00] rounded-full"></div>
+                  <p>本报价单内报价均为含税报价</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="w-1.5 h-1.5 bg-[#EF6B00] rounded-full"></div>
+                  <p>产品与服务报价数量仅供参考</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="w-1.5 h-1.5 bg-[#EF6B00] rounded-full"></div>
+                  <p>实际数量以验收后结算单为准</p>
+                </div>
+              </div>
+            </div>
           </div>
 
           <div className="mt-8 pt-6 border-t border-[#E5E7EB]">
