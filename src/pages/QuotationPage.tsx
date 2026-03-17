@@ -342,7 +342,7 @@ export default function QuotationPage() {
         userName={user.name || user.username}
         onHomeClick={() => navigate(ROUTES.HOME)}
         onProjectClick={() => navigate(ROUTES.PROJECTS)}
-        onOrderClick={() => navigate(ROUTES.ORDERS)}
+        onOrderClick={() => navigate(ROUTES.ORDERS, { state: { project } })}
         onLogout={handleLogout}
       />
       <div className="max-w-screen-2xl mx-auto p-6">  
@@ -463,7 +463,7 @@ export default function QuotationPage() {
                   <h4 className="font-black text-green-900 text-[30px] mb-2">报价单已确认</h4>
                   <p className="text-[16px] text-[#6B7280]">感谢您的确认！项目报价流程已完成。</p>
                 </div>
-                {signatureData && <img src={signatureData} alt="Signature" className="w-48 h-24 border-2 border-green-300 rounded-xl bg-white object-contain" />}
+                {!!signatureData && <img src={signatureData} alt="Signature" className="w-48 h-24 border-2 border-green-300 rounded-xl bg-white object-contain" />}
               </div>
             ) : isFeedbackSubmitted ? (
               <div className="bg-orange-50 rounded-[24px] p-6 border border-orange-200">

@@ -5,7 +5,13 @@ export interface Point {
 
 export type TargetType = 'image_point' | 'text_description';
 
-export type VersionStatus = 'draft' | 'published' | 'completed' | 'archived';
+export type VersionStatus = 
+  | 'draft' 
+  | 'published_unread' 
+  | 'reviewing' 
+  | 'reviewed' 
+  | 'historical' 
+  | 'archived';
 
 export type LockAction = 'next' | 'satisfied';
 

@@ -4,7 +4,7 @@
  */
 
 import React, { useState } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom';
 import DashboardPage from './pages/DashboardPage';
 import ProjectSelectionPage from './pages/ProjectSelectionPage';
 import OrderSelectionPage from './pages/OrderSelectionPage';
@@ -17,8 +17,8 @@ import { OrderVersion } from './types';
 const INITIAL_MOCK_VERSIONS: OrderVersion[] = [
   {
     id: "v-draft-001",
-    versionNumber: "1.0",
-    name: "初始草稿",
+    versionNumber: "1",
+    name: "初始方案",
     status: "draft",
     createdAt: "2026-03-08T10:00:00Z",
     pages: [
@@ -27,83 +27,126 @@ const INITIAL_MOCK_VERSIONS: OrderVersion[] = [
         annotations: [{ id: "a1", targetType: "image_point", point: { x: 10, y: 20 }, content: "标注1", createdAt: "2026-03-08T10:00:00Z" }],
         comments: [],
         lock: { isLocked: false }
-      },
-      {
-        snapshotId: "s2", versionId: "v-draft-001", pageId: "p2", order: 2, title: "详情页", text: "详情页描述", imageUrl: "https://picsum.photos/seed/design2/1920/1080",
-        annotations: [],
-        comments: [{ id: "c1", targetType: "text_description", content: "这里需要调整", createdAt: "2026-03-08T10:00:00Z", authorName: "客户" }],
-        lock: { isLocked: false }
       }
     ]
-  },
-  {
-    id: "v-pub-001",
-    basedOnVersionId: "v-draft-001",
-    versionNumber: "0.9",
-    name: "发布版本",
-    status: "published",
-    createdAt: "2026-03-01T10:00:00Z",
-    publishedAt: "2026-03-01T12:00:00Z",
-    pages: [{
-      snapshotId: "s3", versionId: "v-pub-001", pageId: "p1", order: 1, title: "首页", text: "首页描述", imageUrl: "https://picsum.photos/seed/design3/1920/1080",
-      annotations: [], comments: [], lock: { isLocked: false }
-    }]
   }
 ];
 
 export default function App() {
-  const [versions, setVersions] = useState<OrderVersion[]>(INITIAL_MOCK_VERSIONS);
-  const [quotationVersions, setQuotationVersions] = useState<any[]>([]);
-  const [settlementVersions, setSettlementVersions] = useState<any[]>([]);
+  // Isolate data by orderId
+  const [versionsMap, setVersionsMap] = useState<Record<string, OrderVersion[]>>({
+    'o1': INITIAL_MOCK_VERSIONS
+  });
+  const [quotationsMap, setQuotationsMap] = useState<Record<string, any[]>>({});
+  const [settlementsMap, setSettlementsMap] = useState<Record<string, any[]>>({});
 
-  const handleUpdateVersion = (updatedVersion: OrderVersion) => {
-    setVersions(prev => prev.map(v => v.id === updatedVersion.id ? updatedVersion : v));
+  const handleUpdateVersion = (orderId: string, updatedVersion: OrderVersion) => {
+    setVersionsMap(prev => {
+      const versions = prev[orderId] || [];
+      return {
+        ...prev,
+        [orderId]: versions.map(v => v.id === updatedVersion.id ? updatedVersion : v)
+      };
+    });
   };
 
-  const handlePublishVersion = (id: string) => {
-    setVersions(prev => prev.map(v => {
-      if (v.id === id) {
-        return { ...v, status: 'published', publishedAt: new Date().toISOString() };
-      }
-      return v;
+  const handlePublishVersion = (orderId: string, id: string) => {
+    setVersionsMap(prev => {
+      const versions = prev[orderId] || [];
+      return {
+        ...prev,
+        [orderId]: versions.map(v => {
+          if (v.id === id) {
+            return { ...v, status: 'published_unread', publishedAt: new Date().toISOString() };
+          }
+          return v;
+        })
+      };
+    });
+  };
+
+  const handleStartReview = (orderId: string, id: string) => {
+    setVersionsMap(prev => {
+      const versions = prev[orderId] || [];
+      return {
+        ...prev,
+        [orderId]: versions.map(v => v.id === id ? { ...v, status: 'reviewing' } : v)
+      };
+    });
+  };
+
+  const handleCompleteReview = (orderId: string, id: string) => {
+    setVersionsMap(prev => {
+      const versions = prev[orderId] || [];
+      return {
+        ...prev,
+        [orderId]: versions.map(v => v.id === id ? { ...v, status: 'reviewed' } : v)
+      };
+    });
+  };
+
+  const handleCreateVersion = (orderId: string) => {
+    const versions = versionsMap[orderId] || [];
+    const latestVersion = versions[0];
+    const maxVersionNumber = Math.max(...versions.map(v => parseInt(v.versionNumber)), 0);
+    const newVersionNumber = (maxVersionNumber + 1).toString();
+    const newId = `v-${Date.now()}`;
+
+    let newVersion: OrderVersion;
+
+    if (latestVersion) {
+      newVersion = {
+        ...latestVersion,
+        id: newId,
+        versionNumber: newVersionNumber,
+        name: `${latestVersion.name.replace(/ 副本$/, '')} 副本`,
+        status: 'draft',
+        createdAt: new Date().toISOString(),
+        publishedAt: undefined,
+        pages: latestVersion.pages.map(p => ({
+          ...p,
+          snapshotId: `s-${Date.now()}-${Math.random()}`,
+          versionId: newId,
+          comments: []
+        }))
+      };
+    } else {
+      newVersion = {
+        id: newId,
+        versionNumber: newVersionNumber,
+        name: "新方案",
+        status: 'draft',
+        createdAt: new Date().toISOString(),
+        pages: []
+      };
+    }
+
+    setVersionsMap(prev => ({
+      ...prev,
+      [orderId]: [newVersion, ...(prev[orderId] || [])]
     }));
-  };
 
-  const handleCopyVersion = (id: string) => {
-    const source = versions.find(v => v.id === id);
-    if (!source) return;
-
-    const newVersion: OrderVersion = {
-      ...source,
-      id: `v-draft-${Date.now()}`,
-      versionNumber: (parseFloat(source.versionNumber) + 0.1).toFixed(1),
-      name: `${source.name} (副本)`,
-      status: 'draft',
-      createdAt: new Date().toISOString(),
-      publishedAt: undefined,
-      basedOnVersionId: source.id,
-    };
-
-    setVersions(prev => [newVersion, ...prev]);
-  };
-
-  const handleCreateVersion = () => {
-    const newId = `v-draft-${Date.now()}`;
-    const newVersion: OrderVersion = {
-      id: newId,
-      versionNumber: "1.0",
-      name: "新方案",
-      status: 'draft',
-      createdAt: new Date().toISOString(),
-      pages: []
-    };
-    setVersions(prev => [newVersion, ...prev]);
-    return newId;
+    return { id: newId, versionNumber: newVersionNumber, isCopy: !!latestVersion };
   };
 
   return (
     <>
-      <Toaster position="top-center" richColors />
+      <Toaster 
+        position="top-center" 
+        richColors 
+        toastOptions={{
+          style: {
+            borderRadius: '16px',
+            padding: '16px',
+            fontSize: '14px',
+            fontWeight: '600',
+            fontFamily: 'HonorSans, sans-serif',
+            boxShadow: '0 12px 32px rgba(0, 0, 0, 0.12)',
+            border: 'none',
+          },
+          className: 'my-toast-class',
+        }}
+      />
       <Routes>
         <Route path="/" element={<DashboardPage />} />
         <Route path="/projects" element={<ProjectSelectionPage />} />
@@ -111,23 +154,25 @@ export default function App() {
         <Route 
           path="/overview" 
           element={
-            <OverviewPage 
-              versions={versions} 
-              quotationVersions={quotationVersions}
-              setQuotationVersions={setQuotationVersions}
-              settlementVersions={settlementVersions}
-              setSettlementVersions={setSettlementVersions}
+            <OverviewWrapper 
+              versionsMap={versionsMap}
+              quotationsMap={quotationsMap}
+              setQuotationsMap={setQuotationsMap}
+              settlementsMap={settlementsMap}
+              setSettlementsMap={setSettlementsMap}
               onPublishVersion={handlePublishVersion}
-              onCopyVersion={handleCopyVersion}
+              onStartReview={handleStartReview}
+              onCompleteReview={handleCompleteReview}
               onCreateVersion={handleCreateVersion}
+              onUpdateVersion={handleUpdateVersion}
             />
           } 
         />
         <Route 
           path="/editor/:versionId" 
           element={
-            <EditorPage 
-              versions={versions} 
+            <EditorWrapper 
+              versionsMap={versionsMap}
               onUpdateVersion={handleUpdateVersion}
               onPublishVersion={handlePublishVersion}
             />
@@ -138,5 +183,71 @@ export default function App() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </>
+  );
+}
+
+// Wrapper to inject orderId from location state
+function OverviewWrapper({ 
+  versionsMap, 
+  quotationsMap, 
+  setQuotationsMap, 
+  settlementsMap, 
+  setSettlementsMap,
+  onPublishVersion,
+  onStartReview,
+  onCompleteReview,
+  onCreateVersion,
+  onUpdateVersion
+}: any) {
+  const location = useLocation();
+  const orderId = location.state?.order?.id || 'o1';
+
+  return (
+    <OverviewPage 
+      versions={versionsMap[orderId] || []} 
+      quotationVersions={quotationsMap[orderId] || []}
+      setQuotationVersions={(val: any) => {
+        if (typeof val === 'function') {
+          setQuotationsMap((prev: any) => ({ ...prev, [orderId]: val(prev[orderId] || []) }));
+        } else {
+          setQuotationsMap((prev: any) => ({ ...prev, [orderId]: val }));
+        }
+      }}
+      settlementVersions={settlementsMap[orderId] || []}
+      setSettlementVersions={(val: any) => {
+        if (typeof val === 'function') {
+          setSettlementsMap((prev: any) => ({ ...prev, [orderId]: val(prev[orderId] || []) }));
+        } else {
+          setSettlementsMap((prev: any) => ({ ...prev, [orderId]: val }));
+        }
+      }}
+      onPublishVersion={(id: string) => onPublishVersion(orderId, id)}
+      onStartReview={(id: string) => onStartReview(orderId, id)}
+      onCompleteReview={(id: string) => onCompleteReview(orderId, id)}
+      onCreateVersion={() => onCreateVersion(orderId)}
+      onUpdateVersion={(v: OrderVersion) => onUpdateVersion(orderId, v)}
+    />
+  );
+}
+
+// Wrapper for Editor to find which order the version belongs to
+function EditorWrapper({ versionsMap, onUpdateVersion, onPublishVersion }: any) {
+  const { versionId } = useParams();
+  
+  // Find orderId
+  let orderId = 'o1';
+  for (const [id, versions] of Object.entries(versionsMap)) {
+    if ((versions as OrderVersion[]).some(v => v.id === versionId)) {
+      orderId = id;
+      break;
+    }
+  }
+
+  return (
+    <EditorPage 
+      versions={versionsMap[orderId] || []} 
+      onUpdateVersion={(v: OrderVersion) => onUpdateVersion(orderId, v)}
+      onPublishVersion={(id: string) => onPublishVersion(orderId, id)}
+    />
   );
 }

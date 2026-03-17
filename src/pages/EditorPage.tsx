@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, Plus, Trash2, Check, X } from 'lucide-react';
 import Cropper, { Area } from 'react-easy-crop';
 import { cn } from '../utils/cn';
@@ -40,6 +40,10 @@ export default function EditorPage({
 }) {
   const { versionId } = useParams<{ versionId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
+  
+  const project = location.state?.project;
+  const order = location.state?.order;
   
   const version = versions.find(v => v.id === versionId);
   
@@ -66,7 +70,7 @@ export default function EditorPage({
     return (
       <div className="min-h-screen bg-slate-50 p-6 flex flex-col items-center justify-center">
         <h2 className="text-3xl font-bold text-slate-900 mb-4">找不到该版本</h2>
-        <button onClick={() => navigate('/overview')} className="px-8 py-4 bg-orange-600 text-white rounded-2xl font-bold hover:bg-orange-700">返回方案列表</button>
+        <button onClick={() => navigate('/overview', { state: { project, order } })} className="px-8 py-4 bg-orange-600 text-white rounded-2xl font-bold hover:bg-orange-700">返回方案列表</button>
       </div>
     );
   }
@@ -111,10 +115,10 @@ export default function EditorPage({
     };
   }, [page?.annotations, redrawTrigger]);
 
-  const onBack = () => navigate('/overview');
+  const onBack = () => navigate('/overview', { state: { project, order } });
   const onPublish = () => {
     onPublishVersion(version.id);
-    navigate('/overview');
+    navigate('/overview', { state: { project, order } });
   };
 
   // Force redraw on scroll or resize
@@ -450,7 +454,7 @@ export default function EditorPage({
             </div>
             <div className="flex-1 bg-white rounded-3xl p-6 shadow-sm border border-slate-200 relative group min-h-[400px]" ref={imageContainerRef} onClick={handleImageClick}>
               {page.imageUrl ? (
-                <img src={page.imageUrl} className="w-full h-full object-contain" />
+                <img src={page.imageUrl || undefined} className="w-full h-full object-contain" />
               ) : (
                 <div className="w-full h-full flex flex-col items-center justify-center border-2 border-dashed border-slate-200 rounded-2xl bg-slate-50/50">
                   <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-sm mb-4">

@@ -16,7 +16,7 @@ const INITIAL_ORDERS: Order[] = [
   {
     id: 'o1',
     projectId: 'p1',
-    orderNumber: 'PSO-OD_LHJCF-001',
+    orderNumber: 'PSO-OD_LHJCF-00001',
     title: '空间产品安装-家用电器',
     status: 'S00',
     price: '¥24,500',
@@ -27,7 +27,7 @@ const INITIAL_ORDERS: Order[] = [
   {
     id: 'o2',
     projectId: 'p1',
-    orderNumber: 'PSO-OD_LHJCF-002',
+    orderNumber: 'PSO-OD_LHJCF-00002',
     title: '空间产品安装-移动家具',
     status: 'S01',
     price: '¥45,800',
@@ -38,7 +38,7 @@ const INITIAL_ORDERS: Order[] = [
   {
     id: 'o3',
     projectId: 'p1',
-    orderNumber: 'PSO-OD_LHJCF-003',
+    orderNumber: 'PSO-OD_LHJCF-00003',
     title: '空间产品安装-软装摆件',
     status: 'S02',
     price: '¥12,000',
@@ -49,7 +49,7 @@ const INITIAL_ORDERS: Order[] = [
   {
     id: 'o4',
     projectId: 'p1',
-    orderNumber: 'PSO-OD_LHJCF-004',
+    orderNumber: 'PSO-OD_LHJCF-00004',
     title: '空间产品安装-全屋床垫',
     status: 'S03',
     price: '¥18,900',
@@ -60,7 +60,7 @@ const INITIAL_ORDERS: Order[] = [
   {
     id: 'o5',
     projectId: 'p1',
-    orderNumber: 'PSO-OD_LHJCF-005',
+    orderNumber: 'PSO-OD_LHJCF-00005',
     title: '空间产品安装-全屋窗帘',
     status: 'S04',
     price: '¥8,600',
@@ -71,7 +71,7 @@ const INITIAL_ORDERS: Order[] = [
   {
     id: 'o6',
     projectId: 'p1',
-    orderNumber: 'PSO-OD_LHJCF-006',
+    orderNumber: 'PSO-OD_LHJCF-00006',
     title: '空间产品安装-木地板',
     status: 'S05',
     price: '¥32,000',
@@ -82,7 +82,7 @@ const INITIAL_ORDERS: Order[] = [
   {
     id: 'o7',
     projectId: 'p1',
-    orderNumber: 'PSO-OD_LHJCF-007',
+    orderNumber: 'PSO-OD_LHJCF-00007',
     title: '全屋系统安装-卫浴产品安装',
     status: 'S06',
     price: '¥28,400',
@@ -93,7 +93,7 @@ const INITIAL_ORDERS: Order[] = [
   {
     id: 'o8',
     projectId: 'p1',
-    orderNumber: 'PSO-OD_LHJCF-008',
+    orderNumber: 'PSO-OD_LHJCF-00008',
     title: '全屋系统安装-照明系统安装',
     status: 'S07',
     price: '¥15,200',
@@ -104,7 +104,7 @@ const INITIAL_ORDERS: Order[] = [
   {
     id: 'o9',
     projectId: 'p1',
-    orderNumber: 'PSO-OD_LHJCF-009',
+    orderNumber: 'PSO-OD_LHJCF-00009',
     title: '全屋系统安装-智能系统安装',
     status: 'S08',
     price: '¥56,000',
@@ -115,7 +115,7 @@ const INITIAL_ORDERS: Order[] = [
   {
     id: 'o10',
     projectId: 'p1',
-    orderNumber: 'PSO-OD_LHJCF-010',
+    orderNumber: 'PSO-OD_LHJCF-00010',
     title: '全屋系统安装-空调挂机系统安装',
     status: 'S09',
     price: '¥19,800',
@@ -126,7 +126,7 @@ const INITIAL_ORDERS: Order[] = [
   {
     id: 'o11',
     projectId: 'p1',
-    orderNumber: 'PSO-OD_LHJCF-011',
+    orderNumber: 'PSO-OD_LHJCF-00011',
     title: '全屋系统安装-新风净化系统',
     status: 'S10',
     price: '¥22,000',
@@ -137,7 +137,7 @@ const INITIAL_ORDERS: Order[] = [
   {
     id: 'o12',
     projectId: 'p1',
-    orderNumber: 'PSO-OD_LHJCF-012',
+    orderNumber: 'PSO-OD_LHJCF-00012',
     title: '空间产品安装-全屋定制橱柜',
     status: 'S11',
     price: '¥38,500',
@@ -148,7 +148,7 @@ const INITIAL_ORDERS: Order[] = [
   {
     id: 'o13',
     projectId: 'p1',
-    orderNumber: 'PSO-OD_LHJCF-013',
+    orderNumber: 'PSO-OD_LHJCF-00013',
     title: '空间产品安装-全屋定制衣柜',
     status: 'S12',
     price: '¥64,000',
@@ -159,7 +159,7 @@ const INITIAL_ORDERS: Order[] = [
   {
     id: 'o14',
     projectId: 'p1',
-    orderNumber: 'PSO-OD_LHJCF-014',
+    orderNumber: 'PSO-OD_LHJCF-00014',
     title: '全屋系统安装-地暖系统安装',
     status: 'S13',
     price: '¥31,200',
