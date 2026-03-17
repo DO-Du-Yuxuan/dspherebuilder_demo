@@ -10,6 +10,7 @@ import {
   Pencil,
   Package,
   Hammer,
+  MessageSquare,
 } from "lucide-react";
 import { toast } from "sonner";
 import { ROUTES } from "../utils/constants";
@@ -318,12 +319,12 @@ function ConstructionDetails({
 export default function QuotationPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { project, order } = location.state || {};
+  const { project, order, quotation } = location.state || {};
 
-  const [isConfirmed, setIsConfirmed] = useState(false);
-  const [isFeedbackSubmitted, setIsFeedbackSubmitted] = useState(false);
-  const [signatureData, setSignatureData] = useState<string | null>(null);
-  const [feedbackText, setFeedbackText] = useState<string | null>(null);
+  const [isConfirmed, setIsConfirmed] = useState(quotation?.status === 'signed');
+  const [isFeedbackSubmitted, setIsFeedbackSubmitted] = useState(quotation?.status === 'feedback');
+  const [signatureData, setSignatureData] = useState<string | null>(quotation?.signedAt ? "https://picsum.photos/seed/signature/200/100" : null);
+  const [feedbackText, setFeedbackText] = useState<string | null>(quotation?.feedback || null);
   const user = getCurrentUser();
 
   useEffect(() => {
@@ -463,13 +464,31 @@ export default function QuotationPage() {
                   <h4 className="font-black text-green-900 text-[30px] mb-2">报价单已确认</h4>
                   <p className="text-[16px] text-[#6B7280]">感谢您的确认！项目报价流程已完成。</p>
                 </div>
-                {!!signatureData && <img src={signatureData} alt="Signature" className="w-48 h-24 border-2 border-green-300 rounded-xl bg-white object-contain" />}
+                {!!signatureData && (
+                  <div className="w-48 h-24 border-2 border-green-300 rounded-xl bg-white flex items-center justify-center text-slate-300 font-bold text-sm">
+                    签字区域
+                  </div>
+                )}
               </div>
             ) : isFeedbackSubmitted ? (
-              <div className="bg-orange-50 rounded-[24px] p-6 border border-orange-200">
-                <h4 className="font-black text-[#0A0A0A] text-[30px] mb-2">异议已记录</h4>
-                <p className="text-[16px] text-[#6B7280]">我们已收到您的报价异议，核算专员将在1个工作日内联系您复核数据。</p>
-                {feedbackText && <div className="mt-4 p-3 bg-white border border-orange-200 rounded-xl text-[14px]">{feedbackText}</div>}
+              <div className="bg-[#FFF9F2] rounded-[24px] p-8 border border-[#FFEDD5] flex items-center justify-between relative overflow-hidden">
+                <div className="flex items-center gap-6">
+                  <div className="bg-[#EF6B00] p-4 rounded-2xl shadow-lg shadow-[#EF6B00]/20">
+                    <MessageSquare className="w-8 h-8 text-white" />
+                  </div>
+                  <div>
+                    <h4 className="font-black text-[#0A0A0A] text-[32px] mb-1">调整建议已收到</h4>
+                    <div className="text-[14px] text-[#6B7280] mb-3">提交时间：{quotation?.feedbackAt || formatDateTime(new Date().toISOString())}</div>
+                    <p className="text-[16px] text-[#6B7280]">感谢您的宝贵意见！我们的客户经理会在1个工作日内联系您，沟通调整方案。</p>
+                  </div>
+                </div>
+                
+                <div className="flex flex-col items-end gap-2">
+                  <span className="text-[12px] font-bold text-[#6B7280] uppercase tracking-wider">您的反馈</span>
+                  <div className="bg-white border-2 border-[#FFEDD5] rounded-2xl px-6 py-4 shadow-sm min-w-[120px] text-center">
+                    <span className="text-[20px] font-black text-[#0A0A0A]">{feedbackText || "太贵了"}</span>
+                  </div>
+                </div>
               </div>
             ) : null}
           </div>

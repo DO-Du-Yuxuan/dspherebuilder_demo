@@ -89,6 +89,41 @@ export interface OrderItem {
   color: string;
 }
 
+export type DocumentStatus = 
+  | 'draft'
+  | 'unread'   // 未查看未签字
+  | 'read'     // 已查看未签字
+  | 'feedback' // 已查看已反馈
+  | 'signed';   // 已查看已签字
+
+export interface QuotationVersion {
+  id: string;
+  versionNumber: string;
+  name: string;
+  status: DocumentStatus;
+  createdAt: string;
+  publishedAt?: string;
+  totalPrice: string;
+  feedback?: string;
+  feedbackAt?: string;
+  signedAt?: string;
+  signatureUrl?: string;
+}
+
+export interface SettlementVersion {
+  id: string;
+  versionNumber: string;
+  name: string;
+  status: DocumentStatus;
+  createdAt: string;
+  publishedAt?: string;
+  totalPrice: string;
+  feedback?: string;
+  feedbackAt?: string;
+  signedAt?: string;
+  signatureUrl?: string;
+}
+
 export interface SettlementItem {
   id: number;
   epcCode: string;

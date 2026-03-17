@@ -84,7 +84,7 @@ const INITIAL_ORDERS: Order[] = [
     projectId: 'p1',
     orderNumber: 'PSO-OD_LHJCF-00007',
     title: '全屋系统安装-卫浴产品安装',
-    status: 'S06',
+    status: 'S06-01',
     price: '¥28,400',
     schemeVersions: [],
     quotationVersions: [],

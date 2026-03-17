@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { History, Eye, Edit3, Send, Copy, Plus, FileText, CheckCircle2, MessageSquare, Package, Hammer, Home, ArrowLeftRight, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '../utils/cn';
-import { OrderVersion } from '../types';
+import { OrderVersion, QuotationVersion, SettlementVersion, DocumentStatus } from '../types';
 import { ROUTES, ORDER_STATUS_CONFIG } from '../utils/constants';
 import { tokens } from '../design-tokens';
 import { Header } from '../components/Header';
@@ -22,18 +22,34 @@ export default function OverviewPage({
   onStartReview,
   onCompleteReview,
   onCreateVersion,
-  onUpdateVersion
+  onUpdateVersion,
+  onPublishQuotation,
+  onViewQuotation,
+  onFeedbackQuotation,
+  onSignQuotation,
+  onPublishSettlement,
+  onViewSettlement,
+  onFeedbackSettlement,
+  onSignSettlement
 }: {
   versions: OrderVersion[],
-  quotationVersions: any[],
-  setQuotationVersions: React.Dispatch<React.SetStateAction<any[]>>,
-  settlementVersions: any[],
-  setSettlementVersions: React.Dispatch<React.SetStateAction<any[]>>,
+  quotationVersions: QuotationVersion[],
+  setQuotationVersions: React.Dispatch<React.SetStateAction<QuotationVersion[]>>,
+  settlementVersions: SettlementVersion[],
+  setSettlementVersions: React.Dispatch<React.SetStateAction<SettlementVersion[]>>,
   onPublishVersion: (id: string) => void,
   onStartReview: (id: string) => void,
   onCompleteReview: (id: string) => void,
   onCreateVersion: () => { id: string, versionNumber: string, isCopy: boolean },
-  onUpdateVersion: (version: OrderVersion) => void
+  onUpdateVersion: (version: OrderVersion) => void,
+  onPublishQuotation: (id: string) => void,
+  onViewQuotation: (id: string) => void,
+  onFeedbackQuotation: (id: string, feedback: string) => void,
+  onSignQuotation: (id: string) => void,
+  onPublishSettlement: (id: string) => void,
+  onViewSettlement: (id: string) => void,
+  onFeedbackSettlement: (id: string, feedback: string) => void,
+  onSignSettlement: (id: string) => void
 }) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -59,22 +75,17 @@ export default function OverviewPage({
   }, [initialOrder.id]);
 
   const handlePublishScheme = (versionId: string) => {
-    if (currentOrder.status === 'S00') {
-      const updated = updateOrderStatus(currentOrder.id, 'S01');
-      if (updated) {
-        setCurrentOrder(updated);
-        onPublishVersion(versionId);
-        toast.success('发布成功！订单状态已更新为 S01-意向沟通中');
-      }
-    } else {
-      onPublishVersion(versionId);
-      toast.success('方案已发布给客户');
-    }
+    onPublishVersion(versionId);
+    toast.success('方案已发布给客户');
   };
 
   const hasDraft = versions.some(v => v.status === 'draft');
 
+  const isTerminalStatus = ['S04', 'S08', 'S11'].includes(currentOrder.status);
+  const isS04orS08 = ['S04', 'S08'].includes(currentOrder.status);
+
   const handleCreateVersion = () => {
+    if (isTerminalStatus) return;
     if (hasDraft) {
       toast('温馨提示', {
         description: '检测到您当前有一份尚未发布的草稿。为了保持版本链路清晰，请先完成当前草稿的发布，再开启新的设计篇章。',
@@ -122,14 +133,23 @@ export default function OverviewPage({
   };
 
   const handlePublishQuotation = (id: string) => {
-    if (currentOrder.status === 'S00') {
+    if (currentOrder.status === 'S00' && !versions.some(v => v.status !== 'draft')) {
       toast.error('请先发布方案设计，再发布报价单');
       return;
     }
 
-    setQuotationVersions(prev => prev.map(v => v.id === id ? { ...v, status: 'published' } : v));
+    setQuotationVersions(prev => prev.map(v => v.id === id ? { ...v, status: 'unread' as DocumentStatus, publishedAt: new Date().toLocaleString() } : v));
+    onPublishQuotation(id);
 
-    if (currentOrder.status === 'S02') {
+    const publishedCount = quotationVersions.filter(v => v.status !== 'draft').length + 1;
+
+    if (currentOrder.status === 'S00' && publishedCount === 1) {
+      const updated = updateOrderStatus(currentOrder.id, 'S01');
+      if (updated) {
+        setCurrentOrder(updated);
+        toast.success('发布成功！订单状态已更新为 S01-意向沟通中');
+      }
+    } else if (currentOrder.status.startsWith('S02') && publishedCount >= 2) {
       const updated = updateOrderStatus(currentOrder.id, 'S03');
       if (updated) {
         setCurrentOrder(updated);
@@ -137,6 +157,40 @@ export default function OverviewPage({
       }
     } else {
       toast.success('报价单已发布给客户');
+    }
+  };
+
+  const handleViewQuotationLocal = (id: string) => {
+    setQuotationVersions(prev => prev.map(v => v.id === id ? { ...v, status: 'read' as DocumentStatus } : v));
+    onViewQuotation(id);
+    toast.info('模拟客户已查看报价单');
+  };
+
+  const handleFeedbackQuotationLocal = (id: string) => {
+    const feedback = "希望调整一下部分产品的品牌";
+    setQuotationVersions(prev => prev.map(v => v.id === id ? { ...v, status: 'feedback' as DocumentStatus, feedback, feedbackAt: new Date().toLocaleString() } : v));
+    onFeedbackQuotation(id, feedback);
+    toast.info('模拟客户已提交反馈');
+  };
+
+  const handleSignQuotationLocal = (id: string) => {
+    setQuotationVersions(prev => prev.map(v => v.id === id ? { ...v, status: 'signed' as DocumentStatus, signedAt: new Date().toLocaleString() } : v));
+    onSignQuotation(id);
+    toast.success('模拟客户已完成签字');
+
+    // Handle order status transitions
+    if (currentOrder.status === 'S01') {
+      const updated = updateOrderStatus(currentOrder.id, 'S02');
+      if (updated) {
+        setCurrentOrder(updated);
+        toast.success('订单状态已更新为 S02-订单深化中');
+      }
+    } else if (currentOrder.status === 'S03') {
+      const updated = updateOrderStatus(currentOrder.id, 'S06-01');
+      if (updated) {
+        setCurrentOrder(updated);
+        toast.success('订单状态已更新为 S06-01-交付设计中');
+      }
     }
   };
 
@@ -157,18 +211,46 @@ export default function OverviewPage({
   };
 
   const handlePublishSettlement = (id: string) => {
-    setSettlementVersions(prev => prev.map(v => v.id === id ? { ...v, status: 'published' } : v));
+    setSettlementVersions(prev => prev.map(v => v.id === id ? { ...v, status: 'unread' as DocumentStatus, publishedAt: new Date().toLocaleString() } : v));
+    onPublishSettlement(id);
     toast.success('结算单已发布给客户');
+  };
+
+  const handleViewSettlementLocal = (id: string) => {
+    setSettlementVersions(prev => prev.map(v => v.id === id ? { ...v, status: 'read' as DocumentStatus } : v));
+    onViewSettlement(id);
+    toast.info('模拟客户已查看结算单');
+  };
+
+  const handleFeedbackSettlementLocal = (id: string) => {
+    const feedback = "结算金额与预期有出入，请核对";
+    setSettlementVersions(prev => prev.map(v => v.id === id ? { ...v, status: 'feedback' as DocumentStatus, feedback, feedbackAt: new Date().toLocaleString() } : v));
+    onFeedbackSettlement(id, feedback);
+    toast.info('模拟客户已提交反馈');
+  };
+
+  const handleSignSettlementLocal = (id: string) => {
+    setSettlementVersions(prev => prev.map(v => v.id === id ? { ...v, status: 'signed' as DocumentStatus, signedAt: new Date().toLocaleString() } : v));
+    onSignSettlement(id);
+    toast.success('模拟客户已完成签字');
+
+    if (currentOrder.status === 'S07') {
+      const updated = updateOrderStatus(currentOrder.id, 'S11');
+      if (updated) {
+        setCurrentOrder(updated);
+        toast.success('订单状态已更新为 S11-订单已交付');
+      }
+    }
   };
 
   const activeVersion = versions[0]; // The first one is always the active one in our logic
   const historyVersions = versions.slice(1);
 
-  const draftQuotation = quotationVersions.find(v => v.status === 'draft');
-  const otherQuotations = quotationVersions.filter(v => v.status !== 'draft');
+  const activeQuotation = quotationVersions[0];
+  const historyQuotations = quotationVersions.slice(1);
 
-  const draftSettlement = settlementVersions.find(v => v.status === 'draft');
-  const otherSettlements = settlementVersions.filter(v => v.status !== 'draft');
+  const activeSettlement = settlementVersions[0];
+  const historySettlements = settlementVersions.slice(1);
 
   const user = getCurrentUser();
 
@@ -184,8 +266,27 @@ export default function OverviewPage({
   };
 
   const textColor = getDarkerColor(statusInfo.color);
-  const statusNum = parseInt(currentOrder.status.substring(1));
-  const isReadOnly = [4, 8, 12].includes(statusNum);
+  const statusBase = currentOrder.status.split('-')[0];
+  const statusNum = parseInt(statusBase.substring(1));
+  const isReadOnly = isS04orS08 || currentOrder.status === 'S11';
+
+  const getDocStatusBadge = (status: DocumentStatus) => {
+    const baseClass = "px-3 py-1 rounded-[12px] text-[12px] font-[500]";
+    switch (status) {
+      case 'draft':
+        return <span className={cn(baseClass, "bg-slate-100 text-[#6B7280]")}>待发布</span>;
+      case 'unread':
+        return <span className={cn(baseClass, "bg-blue-100 text-blue-700")}>未查看未签字</span>;
+      case 'read':
+        return <span className={cn(baseClass, "bg-emerald-100 text-emerald-700")}>已查看未签字</span>;
+      case 'feedback':
+        return <span className={cn(baseClass, "bg-orange-100 text-orange-700")}>已查看已反馈</span>;
+      case 'signed':
+        return <span className={cn(baseClass, "bg-emerald-100 text-emerald-700")}>已查看已签字</span>;
+      default:
+        return null;
+    }
+  };
 
   const getStatusBadge = (status: string, isHistory: boolean = false) => {
     const baseClass = "px-3 py-1 rounded-[12px] text-[12px] font-[500]";
@@ -261,7 +362,7 @@ export default function OverviewPage({
             </div>
             <p className="text-[#6B7280] text-[20px] font-mono tracking-wider">{currentOrder.orderNumber}</p>
           </div>
-          {!isReadOnly && (
+          {!isTerminalStatus && (
             <button
               onClick={handleCreateVersion}
               className={cn(
@@ -289,9 +390,8 @@ export default function OverviewPage({
           {activeVersion && (
             <div className="mb-8">
               <div className="bg-white rounded-[24px] shadow-[0_12px_32px_rgba(0,0,0,0.08)] border border-[#E5E7EB] p-6 relative overflow-hidden" style={{ borderRadius: tokens.borderRadius.card, boxShadow: tokens.shadows.card }}>
-                <div className="absolute top-0 right-0 bg-[#EF6B00]/10 text-[#EF6B00] px-4 py-1 rounded-bl-[16px] text-[12px] font-[700] tracking-wider flex items-center gap-2">
-                  <div className="w-2 h-2 bg-[#EF6B00] rounded-full animate-pulse" />
-                  当前活跃方案
+                <div className="absolute top-0 right-0 bg-[#EF6B00] text-white px-4 py-1 rounded-bl-[16px] text-[12px] font-[700] tracking-wider flex items-center gap-2">
+                  当前版本
                 </div>
 
                 <div className="flex justify-between items-start mb-6">
@@ -451,7 +551,7 @@ export default function OverviewPage({
               <div className="w-1.5 h-8 bg-[#EF6B00] rounded-full"></div>
               <h2 className="text-[30px] font-[900] text-[#0A0A0A]" style={{ fontWeight: tokens.fontWeight.sectionTitle }}>订购报价管理</h2>
             </div>
-            {!isReadOnly && (
+            {!isS04orS08 && (
               <button
                 onClick={handleCreateQuotation}
                 className="px-6 py-3 bg-white text-[#EF6B00] border border-[#EF6B00] rounded-[16px] text-[14px] font-[700] hover:bg-[#EF6B00]/5 transition-all flex items-center gap-2 shadow-sm active:scale-95"
@@ -462,51 +562,81 @@ export default function OverviewPage({
             )}
           </div>
 
-          {draftQuotation ? (
+          {activeQuotation ? (
             <div className="mb-8">
               <div className="bg-white rounded-[32px] shadow-[0_20px_50px_rgba(0,0,0,0.1)] border border-[#E5E7EB] p-10 flex items-center justify-between relative overflow-hidden group hover:border-[#EF6B00]/20 transition-all" style={{ borderRadius: tokens.borderRadius.card }}>
-                <div className="absolute top-0 right-0 bg-[#EF6B00]/10 text-[#EF6B00] px-6 py-2 rounded-bl-[20px] text-[12px] font-[800] tracking-widest uppercase">
-                  当前工作版本 DRAFT
+                <div className="absolute top-0 right-0 px-6 py-2 rounded-bl-[20px] text-[12px] font-[800] tracking-widest uppercase bg-[#EF6B00] text-white">
+                  当前版本
                 </div>
                 <div className="flex items-center gap-8">
                   <div className="bg-[#EF6B00] p-5 rounded-[24px] shadow-xl shadow-[#EF6B00]/30 transform group-hover:scale-105 transition-transform">
                     <FileText className="w-10 h-10 text-white" />
                   </div>
                   <div>
-                    <h3 className="text-[32px] font-[900] text-[#0A0A0A] mb-2">{draftQuotation.name}</h3>
+                    <h3 className="text-[32px] font-[900] text-[#0A0A0A] mb-2">{activeQuotation.name}</h3>
                     <div className="flex items-center gap-3">
-                      <span className="px-4 py-1.5 bg-orange-100 text-[#EF6B00] rounded-full text-[14px] font-bold border border-orange-200/50">待发布</span>
+                      {getDocStatusBadge(activeQuotation.status)}
                       <p className="text-[#6B7280] text-[16px] font-medium">
-                        总额: <span className="text-[#0A0A0A] font-bold">{draftQuotation.totalPrice}</span> · 基于最新正式方案生成
+                        总额: <span className="text-[#0A0A0A] font-bold">{activeQuotation.totalPrice}</span> · 基于最新正式方案生成
                       </p>
+                    </div>
+                    
+                    {/* Simulation Buttons for Active Quotation */}
+                    <div className="flex gap-2 mt-4">
+                      {activeQuotation.status === 'unread' && (
+                        <button
+                          onClick={() => handleViewQuotationLocal(activeQuotation.id)}
+                          className="px-4 py-2 bg-blue-50 text-blue-700 rounded-[12px] text-[12px] font-bold border border-blue-100 hover:bg-blue-100 transition-colors"
+                        >
+                          模拟客户查看
+                        </button>
+                      )}
+                      {activeQuotation.status === 'read' && (
+                        <>
+                          <button
+                            onClick={() => handleSignQuotationLocal(activeQuotation.id)}
+                            className="px-4 py-2 bg-emerald-50 text-emerald-700 rounded-[12px] text-[12px] font-bold border border-emerald-100 hover:bg-emerald-100 transition-colors"
+                          >
+                            模拟客户签字
+                          </button>
+                          <button
+                            onClick={() => handleFeedbackQuotationLocal(activeQuotation.id)}
+                            className="px-4 py-2 bg-orange-50 text-orange-700 rounded-[12px] text-[12px] font-bold border border-orange-100 hover:bg-orange-100 transition-colors"
+                          >
+                            模拟客户反馈
+                          </button>
+                        </>
+                      )}
+                      {activeQuotation.status === 'feedback' && (
+                        <div className="text-[14px] text-orange-600 bg-orange-50 px-4 py-2 rounded-[12px] border border-orange-100 flex items-center gap-2">
+                          <MessageSquare className="w-4 h-4" />
+                          已收到客户反馈
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
 
-                <div className="flex gap-4">
-                  <button
-                    onClick={() => navigate(ROUTES.QUOTATION, { state: { project, order: currentOrder } })}
-                    className="px-10 py-5 bg-white text-[#0A0A0A] border border-[#E5E7EB] rounded-[20px] text-[18px] font-[700] hover:bg-slate-50 transition-all flex items-center gap-3 shadow-md hover:shadow-lg active:scale-95"
-                    style={{ borderRadius: tokens.borderRadius.button }}
-                  >
-                    <Eye className="w-5 h-5" /> 预览报价单
-                  </button>
-                  {!isReadOnly && (
-                    <button
-                      onClick={() => handlePublishQuotation(draftQuotation.id)}
-                      disabled={currentOrder.status === 'S00'}
-                      className={cn(
-                        "px-10 py-5 rounded-[20px] text-[18px] font-[700] transition-all flex items-center gap-3 shadow-md hover:shadow-xl active:scale-95",
-                        currentOrder.status === 'S00' 
-                          ? "bg-gray-200 text-gray-400 cursor-not-allowed" 
-                          : "bg-[#EF6B00] text-white hover:bg-[#CC5B00]"
+                  <div className="flex flex-col gap-3">
+                    <div className="flex gap-4">
+                      <button
+                        onClick={() => navigate(ROUTES.QUOTATION, { state: { project, order: currentOrder, quotation: activeQuotation } })}
+                        className="px-10 py-5 bg-white text-[#0A0A0A] border border-[#E5E7EB] rounded-[20px] text-[18px] font-[700] hover:bg-slate-50 transition-all flex items-center gap-3 shadow-md hover:shadow-lg active:scale-95"
+                        style={{ borderRadius: tokens.borderRadius.button }}
+                      >
+                        <Eye className="w-5 h-5" /> {activeQuotation.status === 'draft' ? '预览报价单' : '查看报价单'}
+                      </button>
+                      {activeQuotation.status === 'draft' && !isReadOnly && (
+                        <button
+                          onClick={() => handlePublishQuotation(activeQuotation.id)}
+                          className="px-10 py-5 bg-[#EF6B00] text-white rounded-[20px] text-[18px] font-[700] transition-all flex items-center gap-3 shadow-md hover:shadow-xl active:scale-95"
+                          style={{ borderRadius: tokens.borderRadius.button }}
+                        >
+                          <Send className="w-5 h-5" /> 发布给客户
+                        </button>
                       )}
-                      style={{ borderRadius: tokens.borderRadius.button }}
-                    >
-                      <Send className="w-5 h-5" /> 发布给客户
-                    </button>
-                  )}
-                </div>
+                    </div>
+                  </div>
               </div>
             </div>
           ) : (
@@ -517,27 +647,25 @@ export default function OverviewPage({
           )}
 
           {/* History Quotations */}
-          {otherQuotations.length > 0 && (
+          {historyQuotations.length > 0 && (
             <div className="space-y-4">
               <div className="flex items-center gap-2 mb-6">
                 <History className="w-6 h-6 text-[#6B7280]" />
                 <span className="text-[18px] font-bold text-[#6B7280]">历史与已发布版本</span>
               </div>
-              {otherQuotations.map(q => (
+              {historyQuotations.map(q => (
                 <div key={q.id} className="bg-white rounded-[24px] shadow-sm border border-[#E5E7EB] p-8 flex items-center justify-between hover:border-[#EF6B00]/30 hover:shadow-md transition-all group" style={{ borderRadius: tokens.borderRadius.card }}>
                   <div className="flex items-center gap-6">
                     <div className="flex flex-col">
                       <div className="flex items-center gap-4 mb-2">
                         <h3 className="text-[20px] font-[900] text-[#0A0A0A]">{q.name}</h3>
-                        <span className="px-4 py-1 rounded-full text-[12px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-100">
-                          正式版 (客户可见)
-                        </span>
+                        {getDocStatusBadge(q.status)}
                       </div>
                       <p className="text-[#6B7280] text-[16px] font-medium">{formatDateTime(q.createdAt)} · 总额: <span className="text-[#0A0A0A] font-bold">{q.totalPrice}</span></p>
                     </div>
                   </div>
                   <button
-                    onClick={() => navigate(ROUTES.QUOTATION)}
+                    onClick={() => navigate(ROUTES.QUOTATION, { state: { project, order: currentOrder, quotation: q } })}
                     className="p-4 text-[#6B7280] hover:text-[#EF6B00] hover:bg-[#EF6B00]/5 rounded-[16px] transition-all group-hover:scale-110"
                   >
                     <Eye className="w-6 h-6" />
@@ -549,104 +677,138 @@ export default function OverviewPage({
         </section>
 
         {/* --- SECTION 3: COMPLETION SETTLEMENT --- */}
-        {parseInt(currentOrder.status.substring(1)) >= 7 && (
-          <section className="mb-[96px]">
-            <div className="flex items-center justify-between mb-8">
-              <div className="flex items-center gap-3">
-                <div className="w-1.5 h-8 bg-[#EF6B00] rounded-full"></div>
-                <h2 className="text-[30px] font-[900] text-[#0A0A0A]" style={{ fontWeight: tokens.fontWeight.sectionTitle }}>完工结算管理</h2>
-              </div>
-              {!isReadOnly && (
-                <button
-                  onClick={handleCreateSettlement}
-                  className="px-6 py-3 bg-white text-[#EF6B00] border border-[#EF6B00] rounded-[16px] text-[14px] font-[700] hover:bg-[#EF6B00]/5 transition-all flex items-center gap-2 shadow-sm active:scale-95"
-                  style={{ borderRadius: tokens.borderRadius.button }}
-                >
-                  <Plus className="w-4 h-4" /> 新建结算单
-                </button>
-              )}
+        <section className={cn("mb-[96px]", statusNum < 7 && "opacity-50 grayscale pointer-events-none select-none")}>
+          <div className="flex items-center justify-between mb-8">
+            <div className="flex items-center gap-3">
+              <div className="w-1.5 h-8 bg-[#EF6B00] rounded-full"></div>
+              <h2 className="text-[30px] font-[900] text-[#0A0A0A]" style={{ fontWeight: tokens.fontWeight.sectionTitle }}>
+                完工结算管理 {statusNum < 7 && <span className="text-[14px] font-normal text-slate-400 ml-2">(订单进入验收阶段后开启)</span>}
+              </h2>
             </div>
+            {!isS04orS08 && statusNum >= 7 && (
+              <button
+                onClick={handleCreateSettlement}
+                className="px-6 py-3 bg-white text-[#EF6B00] border border-[#EF6B00] rounded-[16px] text-[14px] font-[700] hover:bg-[#EF6B00]/5 transition-all flex items-center gap-2 shadow-sm active:scale-95"
+                style={{ borderRadius: tokens.borderRadius.button }}
+              >
+                <Plus className="w-4 h-4" /> 新建结算单
+              </button>
+            )}
+          </div>
 
-            {draftSettlement ? (
-              <div className="mb-8">
-                <div className="bg-white rounded-[32px] shadow-[0_20px_50px_rgba(0,0,0,0.1)] border border-[#E5E7EB] p-10 flex items-center justify-between relative overflow-hidden group hover:border-[#EF6B00]/20 transition-all" style={{ borderRadius: tokens.borderRadius.card }}>
-                  <div className="absolute top-0 right-0 bg-[#EF6B00]/10 text-[#EF6B00] px-6 py-2 rounded-bl-[20px] text-[12px] font-[800] tracking-widest uppercase">
-                    当前工作版本 DRAFT
+          {activeSettlement ? (
+            <div className="mb-8">
+              <div className="bg-white rounded-[32px] shadow-[0_20px_50px_rgba(0,0,0,0.1)] border border-[#E5E7EB] p-10 flex items-center justify-between relative overflow-hidden group hover:border-[#EF6B00]/20 transition-all" style={{ borderRadius: tokens.borderRadius.card }}>
+                <div className="absolute top-0 right-0 px-6 py-2 rounded-bl-[20px] text-[12px] font-[800] tracking-widest uppercase bg-[#EF6B00] text-white">
+                  当前版本
+                </div>
+                <div className="flex items-center gap-8">
+                  <div className="bg-slate-800 p-5 rounded-[24px] shadow-xl transform group-hover:scale-105 transition-transform">
+                    <Hammer className="w-10 h-10 text-white" />
                   </div>
-                  <div className="flex items-center gap-8">
-                    <div className="bg-slate-800 p-5 rounded-[24px] shadow-xl transform group-hover:scale-105 transition-transform">
-                      <Hammer className="w-10 h-10 text-white" />
+                  <div>
+                    <h3 className="text-[32px] font-[900] text-[#0A0A0A] mb-2">{activeSettlement.name}</h3>
+                    <div className="flex items-center gap-3">
+                      {getDocStatusBadge(activeSettlement.status)}
+                      <p className="text-[#6B7280] text-[16px] font-medium">
+                        总额: <span className="text-[#0A0A0A] font-bold">{activeSettlement.totalPrice}</span> · 项目已进入验收阶段
+                      </p>
                     </div>
-                    <div>
-                      <h3 className="text-[32px] font-[900] text-[#0A0A0A] mb-2">{draftSettlement.name}</h3>
-                      <div className="flex items-center gap-3">
-                        <span className="px-4 py-1.5 bg-orange-100 text-[#EF6B00] rounded-full text-[14px] font-bold border border-orange-200/50">待确认</span>
-                        <p className="text-[#6B7280] text-[16px] font-medium">
-                          总额: <span className="text-[#0A0A0A] font-bold">{draftSettlement.totalPrice}</span> · 项目已进入验收阶段
-                        </p>
-                      </div>
-                    </div>
-                  </div>
 
-                  <div className="flex gap-4">
+                    {/* Simulation Buttons for Active Settlement */}
+                    <div className="flex gap-2 mt-4">
+                      {activeSettlement.status === 'unread' && (
+                        <button
+                          onClick={() => handleViewSettlementLocal(activeSettlement.id)}
+                          className="px-4 py-2 bg-blue-50 text-blue-700 rounded-[12px] text-[12px] font-bold border border-blue-100 hover:bg-blue-100 transition-colors"
+                        >
+                          模拟客户查看
+                        </button>
+                      )}
+                      {activeSettlement.status === 'read' && (
+                        <>
+                          <button
+                            onClick={() => handleSignSettlementLocal(activeSettlement.id)}
+                            className="px-4 py-2 bg-emerald-50 text-emerald-700 rounded-[12px] text-[12px] font-bold border border-emerald-100 hover:bg-emerald-100 transition-colors"
+                          >
+                            模拟客户签字
+                          </button>
+                          <button
+                            onClick={() => handleFeedbackSettlementLocal(activeSettlement.id)}
+                            className="px-4 py-2 bg-orange-50 text-orange-700 rounded-[12px] text-[12px] font-bold border border-orange-100 hover:bg-orange-100 transition-colors"
+                          >
+                            模拟客户反馈
+                          </button>
+                        </>
+                      )}
+                      {activeSettlement.status === 'feedback' && (
+                        <div className="text-[14px] text-orange-600 bg-orange-50 px-4 py-2 rounded-[12px] border border-orange-100 flex items-center gap-2">
+                          <MessageSquare className="w-4 h-4" />
+                          已收到客户反馈
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-4">
+                  <button
+                    onClick={() => navigate(ROUTES.SETTLEMENT, { state: { project, order: currentOrder, settlement: activeSettlement } })}
+                    className="px-10 py-5 bg-white text-[#0A0A0A] border border-[#E5E7EB] rounded-[20px] text-[18px] font-[700] hover:bg-slate-50 transition-all flex items-center gap-3 shadow-md hover:shadow-lg active:scale-95"
+                    style={{ borderRadius: tokens.borderRadius.button }}
+                  >
+                    <Eye className="w-5 h-5" /> {activeSettlement.status === 'draft' ? '预览结算单' : '查看结算单'}
+                  </button>
+                  {activeSettlement.status === 'draft' && statusNum >= 7 && (
                     <button
-                      onClick={() => navigate(ROUTES.SETTLEMENT, { state: { project, order: currentOrder } })}
-                      className="px-10 py-5 bg-white text-[#0A0A0A] border border-[#E5E7EB] rounded-[20px] text-[18px] font-[700] hover:bg-slate-50 transition-all flex items-center gap-3 shadow-md hover:shadow-lg active:scale-95"
+                      onClick={() => handlePublishSettlement(activeSettlement.id)}
+                      className="px-10 py-5 bg-[#EF6B00] text-white rounded-[20px] text-[18px] font-[700] hover:bg-[#CC5B00] transition-all flex items-center gap-3 shadow-md hover:shadow-xl active:scale-95"
                       style={{ borderRadius: tokens.borderRadius.button }}
                     >
-                      <Eye className="w-5 h-5" /> 预览结算单
+                      <Send className="w-5 h-5" /> 发布给客户
                     </button>
-                    {!isReadOnly && (
-                      <button
-                        onClick={() => handlePublishSettlement(draftSettlement.id)}
-                        className="px-10 py-5 bg-[#EF6B00] text-white rounded-[20px] text-[18px] font-[700] hover:bg-[#CC5B00] transition-all flex items-center gap-3 shadow-md hover:shadow-xl active:scale-95"
-                        style={{ borderRadius: tokens.borderRadius.button }}
-                      >
-                        <Send className="w-5 h-5" /> 发布给客户
-                      </button>
-                    )}
-                  </div>
+                  )}
                 </div>
               </div>
-            ) : (
-              <div className="bg-slate-50 rounded-[32px] border-2 border-dashed border-slate-200 p-16 text-center mb-8">
-                <Hammer className="w-16 h-16 text-slate-300 mx-auto mb-6 opacity-50" />
-                <p className="text-slate-500 text-[18px] font-medium">暂无待确认的结算单，请点击上方按钮新建</p>
-              </div>
-            )}
+            </div>
+          ) : (
+            <div className="bg-slate-50 rounded-[32px] border-2 border-dashed border-slate-200 p-16 text-center mb-8">
+              <Hammer className="w-16 h-16 text-slate-300 mx-auto mb-6 opacity-50" />
+              <p className="text-slate-500 text-[18px] font-medium">
+                {statusNum < 7 ? "结算功能尚未开启" : "暂无待确认的结算单，请点击上方按钮新建"}
+              </p>
+            </div>
+          )}
 
-            {/* History Settlements */}
-            {otherSettlements.length > 0 && (
-              <div className="space-y-4">
-                <div className="flex items-center gap-2 mb-6">
-                  <History className="w-6 h-6 text-[#6B7280]" />
-                  <span className="text-[18px] font-bold text-[#6B7280]">历史与已发布版本</span>
-                </div>
-                {otherSettlements.map(s => (
-                  <div key={s.id} className="bg-white rounded-[24px] shadow-sm border border-[#E5E7EB] p-8 flex items-center justify-between hover:border-[#EF6B00]/30 hover:shadow-md transition-all group" style={{ borderRadius: tokens.borderRadius.card }}>
-                    <div className="flex items-center gap-6">
-                      <div className="flex flex-col">
-                        <div className="flex items-center gap-4 mb-2">
-                          <h3 className="text-[20px] font-[900] text-[#0A0A0A]">{s.name}</h3>
-                          <span className="px-4 py-1 rounded-full text-[12px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-100">
-                            正式版 (客户可见)
-                          </span>
-                        </div>
-                        <p className="text-[#6B7280] text-[16px] font-medium">{formatDateTime(s.createdAt)} · 总额: <span className="text-[#0A0A0A] font-bold">{s.totalPrice}</span></p>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => navigate(ROUTES.SETTLEMENT)}
-                      className="p-4 text-[#6B7280] hover:text-[#EF6B00] hover:bg-[#EF6B00]/5 rounded-[16px] transition-all group-hover:scale-110"
-                    >
-                      <Eye className="w-6 h-6" />
-                    </button>
-                  </div>
-                ))}
+          {/* History Settlements */}
+          {historySettlements.length > 0 && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 mb-6">
+                <History className="w-6 h-6 text-[#6B7280]" />
+                <span className="text-[18px] font-bold text-[#6B7280]">历史与已发布版本</span>
               </div>
-            )}
-          </section>
-        )}
+              {historySettlements.map(s => (
+                <div key={s.id} className="bg-white rounded-[24px] shadow-sm border border-[#E5E7EB] p-8 flex items-center justify-between hover:border-[#EF6B00]/30 hover:shadow-md transition-all group" style={{ borderRadius: tokens.borderRadius.card }}>
+                  <div className="flex items-center gap-6">
+                    <div className="flex flex-col">
+                      <div className="flex items-center gap-4 mb-2">
+                        <h3 className="text-[20px] font-[900] text-[#0A0A0A]">{s.name}</h3>
+                        {getDocStatusBadge(s.status)}
+                      </div>
+                      <p className="text-[#6B7280] text-[16px] font-medium">{formatDateTime(s.createdAt)} · 总额: <span className="text-[#0A0A0A] font-bold">{s.totalPrice}</span></p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => navigate(ROUTES.SETTLEMENT, { state: { project, order: currentOrder, settlement: s } })}
+                    className="p-4 text-[#6B7280] hover:text-[#EF6B00] hover:bg-[#EF6B00]/5 rounded-[16px] transition-all group-hover:scale-110"
+                  >
+                    <Eye className="w-6 h-6" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
       </div>
     </div>
   );

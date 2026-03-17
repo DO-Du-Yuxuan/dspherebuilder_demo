@@ -13,7 +13,7 @@ import EditorPage from './pages/EditorPage';
 import QuotationPage from './pages/QuotationPage';
 import SettlementPage from './pages/SettlementPage';
 import { Toaster } from 'sonner';
-import { OrderVersion } from './types';
+import { OrderVersion, QuotationVersion, SettlementVersion } from './types';
 const INITIAL_MOCK_VERSIONS: OrderVersion[] = [
   {
     id: "v-draft-001",
@@ -37,8 +37,8 @@ export default function App() {
   const [versionsMap, setVersionsMap] = useState<Record<string, OrderVersion[]>>({
     'o1': INITIAL_MOCK_VERSIONS
   });
-  const [quotationsMap, setQuotationsMap] = useState<Record<string, any[]>>({});
-  const [settlementsMap, setSettlementsMap] = useState<Record<string, any[]>>({});
+  const [quotationsMap, setQuotationsMap] = useState<Record<string, QuotationVersion[]>>({});
+  const [settlementsMap, setSettlementsMap] = useState<Record<string, SettlementVersion[]>>({});
 
   const handleUpdateVersion = (orderId: string, updatedVersion: OrderVersion) => {
     setVersionsMap(prev => {
@@ -129,6 +129,88 @@ export default function App() {
     return { id: newId, versionNumber: newVersionNumber, isCopy: !!latestVersion };
   };
 
+  // Quotation Handlers
+  const handlePublishQuotation = (orderId: string, id: string) => {
+    setQuotationsMap(prev => {
+      const list = prev[orderId] || [];
+      return {
+        ...prev,
+        [orderId]: list.map(v => v.id === id ? { ...v, status: 'unread', publishedAt: new Date().toISOString() } : v)
+      };
+    });
+  };
+
+  const handleViewQuotation = (orderId: string, id: string) => {
+    setQuotationsMap(prev => {
+      const list = prev[orderId] || [];
+      return {
+        ...prev,
+        [orderId]: list.map(v => v.id === id && v.status === 'unread' ? { ...v, status: 'read' } : v)
+      };
+    });
+  };
+
+  const handleFeedbackQuotation = (orderId: string, id: string, feedback: string) => {
+    setQuotationsMap(prev => {
+      const list = prev[orderId] || [];
+      return {
+        ...prev,
+        [orderId]: list.map(v => v.id === id ? { ...v, status: 'feedback', feedback, feedbackAt: new Date().toISOString() } : v)
+      };
+    });
+  };
+
+  const handleSignQuotation = (orderId: string, id: string) => {
+    setQuotationsMap(prev => {
+      const list = prev[orderId] || [];
+      return {
+        ...prev,
+        [orderId]: list.map(v => v.id === id ? { ...v, status: 'signed', signedAt: new Date().toISOString(), signatureUrl: 'https://ais-pre-l74ktpnqjf3ojqhok23elc-355399745607.us-east1.run.app/signature.png' } : v)
+      };
+    });
+  };
+
+  // Settlement Handlers
+  const handlePublishSettlement = (orderId: string, id: string) => {
+    setSettlementsMap(prev => {
+      const list = prev[orderId] || [];
+      return {
+        ...prev,
+        [orderId]: list.map(v => v.id === id ? { ...v, status: 'unread', publishedAt: new Date().toISOString() } : v)
+      };
+    });
+  };
+
+  const handleViewSettlement = (orderId: string, id: string) => {
+    setSettlementsMap(prev => {
+      const list = prev[orderId] || [];
+      return {
+        ...prev,
+        [orderId]: list.map(v => v.id === id && v.status === 'unread' ? { ...v, status: 'read' } : v)
+      };
+    });
+  };
+
+  const handleFeedbackSettlement = (orderId: string, id: string, feedback: string) => {
+    setSettlementsMap(prev => {
+      const list = prev[orderId] || [];
+      return {
+        ...prev,
+        [orderId]: list.map(v => v.id === id ? { ...v, status: 'feedback', feedback, feedbackAt: new Date().toISOString() } : v)
+      };
+    });
+  };
+
+  const handleSignSettlement = (orderId: string, id: string) => {
+    setSettlementsMap(prev => {
+      const list = prev[orderId] || [];
+      return {
+        ...prev,
+        [orderId]: list.map(v => v.id === id ? { ...v, status: 'signed', signedAt: new Date().toISOString(), signatureUrl: 'https://ais-pre-l74ktpnqjf3ojqhok23elc-355399745607.us-east1.run.app/signature.png' } : v)
+      };
+    });
+  };
+
   return (
     <>
       <Toaster 
@@ -165,6 +247,14 @@ export default function App() {
               onCompleteReview={handleCompleteReview}
               onCreateVersion={handleCreateVersion}
               onUpdateVersion={handleUpdateVersion}
+              onPublishQuotation={handlePublishQuotation}
+              onViewQuotation={handleViewQuotation}
+              onFeedbackQuotation={handleFeedbackQuotation}
+              onSignQuotation={handleSignQuotation}
+              onPublishSettlement={handlePublishSettlement}
+              onViewSettlement={handleViewSettlement}
+              onFeedbackSettlement={handleFeedbackSettlement}
+              onSignSettlement={handleSignSettlement}
             />
           } 
         />
@@ -197,7 +287,15 @@ function OverviewWrapper({
   onStartReview,
   onCompleteReview,
   onCreateVersion,
-  onUpdateVersion
+  onUpdateVersion,
+  onPublishQuotation,
+  onViewQuotation,
+  onFeedbackQuotation,
+  onSignQuotation,
+  onPublishSettlement,
+  onViewSettlement,
+  onFeedbackSettlement,
+  onSignSettlement
 }: any) {
   const location = useLocation();
   const orderId = location.state?.order?.id || 'o1';
@@ -226,6 +324,14 @@ function OverviewWrapper({
       onCompleteReview={(id: string) => onCompleteReview(orderId, id)}
       onCreateVersion={() => onCreateVersion(orderId)}
       onUpdateVersion={(v: OrderVersion) => onUpdateVersion(orderId, v)}
+      onPublishQuotation={(id: string) => onPublishQuotation(orderId, id)}
+      onViewQuotation={(id: string) => onViewQuotation(orderId, id)}
+      onFeedbackQuotation={(id: string, feedback: string) => onFeedbackQuotation(orderId, id, feedback)}
+      onSignQuotation={(id: string) => onSignQuotation(orderId, id)}
+      onPublishSettlement={(id: string) => onPublishSettlement(orderId, id)}
+      onViewSettlement={(id: string) => onViewSettlement(orderId, id)}
+      onFeedbackSettlement={(id: string, feedback: string) => onFeedbackSettlement(orderId, id, feedback)}
+      onSignSettlement={(id: string) => onSignSettlement(orderId, id)}
     />
   );
 }
