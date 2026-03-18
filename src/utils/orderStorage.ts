@@ -1,5 +1,3 @@
-import { ORDER_STATUS_CONFIG } from './constants';
-
 export interface Order {
   id: string;
   projectId: string;

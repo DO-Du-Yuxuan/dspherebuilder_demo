@@ -462,7 +462,7 @@ export default function EditorPage({
                 <div 
                   key={anno.id} 
                   data-anno-id={anno.id}
-                  ref={el => annotationCardRefs.current[anno.id] = el} 
+                  ref={el => { if (el) annotationCardRefs.current[anno.id] = el; }}
                   onMouseEnter={() => setHoveredAnnotationId(anno.id)}
                   onMouseLeave={() => setHoveredAnnotationId(null)}
                   onClick={() => scrollToAnnotation(anno.id)}
@@ -657,7 +657,7 @@ export default function EditorPage({
                         <div 
                           key={c.id} 
                           data-comm-id={c.id}
-                          ref={el => annotationCardRefs.current[c.id] = el}
+                          ref={el => { if (el) annotationCardRefs.current[c.id] = el; }}
                           onMouseEnter={() => setHoveredAnnotationId(c.id)}
                           onMouseLeave={() => setHoveredAnnotationId(null)}
                           onClick={() => scrollToAnnotation(c.id)}

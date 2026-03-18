@@ -1,6 +1,4 @@
-import React from 'react';
 import { motion } from 'motion/react';
-import { ChevronRight, Home, User, LogOut } from 'lucide-react';
 
 export interface HeaderProps {
   /** 项目名称 */

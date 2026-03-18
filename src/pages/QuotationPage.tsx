@@ -12,8 +12,8 @@ import {
   Hammer,
   MessageSquare,
 } from "lucide-react";
-import { toast } from "sonner";
 import { ROUTES } from "../utils/constants";
+import { formatDateTime } from "../utils/dateUtils";
 import { Header } from "../components/Header";
 import { getCurrentUser, logout } from "../utils/authUtils";
 import "../styles/quotation.css";
@@ -357,10 +357,10 @@ export default function QuotationPage() {
   const location = useLocation();
   const { project, order, quotation } = location.state || {};
 
-  const [isConfirmed, setIsConfirmed] = useState(quotation?.status === 'signed');
-  const [isFeedbackSubmitted, setIsFeedbackSubmitted] = useState(quotation?.status === 'feedback');
-  const [signatureData, setSignatureData] = useState<string | null>(quotation?.signedAt ? "https://picsum.photos/seed/signature/200/100" : null);
-  const [feedbackText, setFeedbackText] = useState<string | null>(quotation?.feedback || null);
+  const [isConfirmed] = useState(quotation?.status === 'signed');
+  const [isFeedbackSubmitted] = useState(quotation?.status === 'feedback');
+  const [signatureData] = useState<string | null>(quotation?.signedAt ? "https://picsum.photos/seed/signature/200/100" : null);
+  const [feedbackText] = useState<string | null>(quotation?.feedback || null);
   const user = getCurrentUser();
 
   useEffect(() => {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { tokens } from '../design-tokens';
 import { ROUTES, ORDER_STATUS_CONFIG } from '../utils/constants';

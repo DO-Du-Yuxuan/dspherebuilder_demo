@@ -3,10 +3,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom';
 import DashboardPage from './pages/DashboardPage';
 import ProjectSelectionPage from './pages/ProjectSelectionPage';
+import ProjectRequirementsPage from './pages/ProjectRequirementsPage';
 import OrderSelectionPage from './pages/OrderSelectionPage';
 import OverviewPage from './pages/OverviewPage';
 import EditorPage from './pages/EditorPage';
@@ -356,6 +357,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<DashboardPage />} />
         <Route path="/projects" element={<ProjectSelectionPage />} />
+        <Route path="/project-requirements" element={<ProjectRequirementsPage />} />
         <Route path="/orders" element={<OrderSelectionPage />} />
         <Route 
           path="/overview" 

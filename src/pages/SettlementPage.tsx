@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
-  FileText,
   User,
   MapPin,
   DollarSign,
@@ -12,8 +11,8 @@ import {
   Hammer,
   MessageSquare,
 } from "lucide-react";
-import { toast } from "sonner";
 import { ROUTES } from '../utils/constants';
+import { formatDateTime } from '../utils/dateUtils';
 import { Header } from '../components/Header';
 import { getCurrentUser, logout } from '../utils/authUtils';
 import "../styles/quotation.css";
@@ -321,10 +320,10 @@ export default function SettlementPage() {
   const location = useLocation();
   const { project, order, settlement } = location.state || {};
 
-  const [isConfirmed, setIsConfirmed] = useState(settlement?.status === 'signed');
-  const [isFeedbackSubmitted, setIsFeedbackSubmitted] = useState(settlement?.status === 'feedback');
-  const [signatureData, setSignatureData] = useState<string | null>(settlement?.signedAt ? "https://picsum.photos/seed/signature/200/100" : null);
-  const [feedbackText, setFeedbackText] = useState<string | null>(settlement?.feedback || null);
+  const [isConfirmed] = useState(settlement?.status === 'signed');
+  const [isFeedbackSubmitted] = useState(settlement?.status === 'feedback');
+  const [signatureData] = useState<string | null>(settlement?.signedAt ? "https://picsum.photos/seed/signature/200/100" : null);
+  const [feedbackText] = useState<string | null>(settlement?.feedback || null);
   const user = getCurrentUser();
 
   useEffect(() => {

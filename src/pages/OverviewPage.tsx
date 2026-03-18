@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { History, Eye, Edit3, Send, Copy, Plus, FileText, CheckCircle2, MessageSquare, Package, Hammer, Home, ArrowLeftRight, ArrowLeft } from 'lucide-react';
+import { History, Eye, Edit3, Send, Plus, FileText, MessageSquare, Hammer, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '../utils/cn';
 import { OrderVersion, QuotationVersion, SettlementVersion, DocumentStatus } from '../types';
@@ -121,7 +121,7 @@ export default function OverviewPage({
       toast.error('已存在待发布的报价单草稿');
       return;
     }
-    const newQuotation = {
+    const newQuotation: QuotationVersion = {
       id: `q-${Date.now()}`,
       name: `订购报价单 `,
       versionNumber: (quotationVersions.length + 1).toString(),
@@ -200,7 +200,7 @@ export default function OverviewPage({
       toast.error('已存在待确认的结算单草稿');
       return;
     }
-    const newSettlement = {
+    const newSettlement: SettlementVersion = {
       id: `s-${Date.now()}`,
       name: `交付结算单 `,
       versionNumber: (settlementVersions.length + 1).toString(),

@@ -22,6 +22,7 @@ export interface Annotation {
   content: string;
   createdAt: string;
   updatedAt?: string;
+  authorName?: string;
 }
 
 export interface Comment {
@@ -153,4 +154,68 @@ export interface SettlementData {
   designItems: SettlementItem[];
   productItems: SettlementItem[];
   constructionItems: SettlementItem[];
+}
+
+export interface MemberSpaceItem {
+  name: string;
+  description?: string;
+}
+
+export interface RequirementsMember {
+  id: string;
+  name: string;
+  age?: string;
+  profession?: string;
+  spaces?: MemberSpaceItem[];
+  otherActivityNote?: string;
+}
+
+export interface FormData {
+  projectLocation?: string;
+  userCity?: string;
+  projectType?: string;
+  projectArea?: string;
+  budgetStandard?: string;
+  budgetSubStandard?: string;
+  timeline?: string;
+  houseUsage?: string;
+  lighting?: string;
+  ventilation?: string;
+  ceilingHeight?: string;
+  noise?: string;
+  coreSpaces?: string;
+  customCoreSpaceOptions?: string[];
+  childGrowth?: string;
+  guestStay?: string;
+  futureChanges?: string;
+  floorPlanImages?: Array<{ name: string; url: string }>;
+  siteMedia?: Array<{ name: string; url: string; kind: 'image' | 'video' }>;
+  smartHomeOptions?: string[];
+  devices?: string[];
+  otherNeeds?: string;
+  comfortSystems?: string[];
+  fengshui?: string;
+  storageFocus?: string[];
+  spaceOtherNote?: string;
+  livingRoomNote?: string;
+  diningNote?: string;
+  kitchenNote?: string;
+  bathroomNote?: string;
+  livingRoomFeature?: string[];
+  diningCount?: string;
+  festivalDiningCount?: string;
+  cookingHabit?: string;
+  secondKitchen?: string;
+  dryWetSeparation?: string;
+  requirementsMembers?: RequirementsMember[];
+  customSpaceItems?: Array<{ name: string; description?: string }>;
+  role?: string;
+  favoriteSpace?: string[];
+  additionalMembers?: string[];
+  daughterSpaces?: string[];
+  sonSpaces?: string[];
+  catSpaces?: string[];
+  dogSpaces?: string[];
+  styleName?: string;
+  bottomLine?: string[];
 }
