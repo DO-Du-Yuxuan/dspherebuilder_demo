@@ -8,6 +8,7 @@ import {
   Cpu,
   LayoutGrid,
   Users,
+  Clock,
   Sparkles,
   Sofa,
   ChefHat,
@@ -80,16 +81,16 @@ export function RequirementsDoc({
   houseUsage,
   data,
   updateData,
-  isShowcase,
   onBackHome,
-  onShowShowcase,
   onGoToStyleEval,
   onShowHistory,
   onPublish,
+  onSave,
   isPublished,
   hasUnpublishedChanges,
-  isEditing = false,
-  setIsEditing,
+  lastUpdated,
+  customerStatus,
+  onSetCustomerStatus,
 }: {
   projectName: string
   ownerDisplayName: string
@@ -97,23 +98,23 @@ export function RequirementsDoc({
   data?: import('../types').FormData
   /** 编辑后持久化到全局 FormData；展示页/预览时可不传 */
   updateData?: (partial: Partial<import('../types').FormData>) => void
-  isShowcase?: boolean
   onBackHome: () => void
-  onShowShowcase?: () => void
   /** 需求书为空时，引导用户从风格测评开始（风格测评→线索收集→转为项目→项目中心） */
   onGoToStyleEval?: () => void
   onShowHistory?: () => void
   onPublish?: () => void
+  onSave?: () => void
   isPublished?: boolean
   hasUnpublishedChanges?: boolean
-  isEditing?: boolean
-  setIsEditing?: (v: boolean) => void
+  lastUpdated?: string
+  customerStatus?: 'unread' | 'agreed' | 'rejected'
+  onSetCustomerStatus?: (status: 'unread' | 'agreed' | 'rejected') => void
 }) {
-  const useMock = isShowcase === true
-  const d = useMock ? null : data
+  const d = data
   const empty = (v: string) => !v || !String(v).trim()
   const val = (v: string, fallback = '未填写') => (empty(v) ? fallback : String(v).trim())
 
+  const [isEditing, setIsEditing] = React.useState(false)
   const [showSubmitModal, setShowSubmitModal] = React.useState(false)
   const [spaceTab, setSpaceTab] = React.useState<string>('living')
 
@@ -173,32 +174,22 @@ export function RequirementsDoc({
   const [planImages, setPlanImages] = React.useState<Array<{ name: string; url: string }>>([])
   const [mediaFiles, setMediaFiles] = React.useState<Array<{ name: string; url: string; kind: 'image' | 'video' }>>([])
 
-  const displayHouseUsage = useMock ? (houseUsage?.trim() || '改善房') : val(d?.houseUsage ?? houseUsage ?? '')
+  const displayHouseUsage = val(d?.houseUsage ?? houseUsage ?? '')
 
-  const infoRows: Array<{ label: string; value: string }> = useMock
-    ? [
-        { label: '项目城市', value: '上海' },
-        { label: '项目类型', value: '平层公寓' },
-        { label: '实际面积', value: '100.0 ㎡' },
-        { label: '预算范围', value: '10.1 万/㎡' },
-        { label: '入住周期', value: '3-6个月' },
-      ]
-    : [
-        { label: '项目城市', value: val(d?.projectLocation ?? d?.userCity ?? '') },
-        { label: '项目类型', value: val(d?.projectType ?? '') },
-        { label: '实际面积', value: d?.projectArea ? `${d.projectArea} ㎡` : '未填写' },
-        { label: '预算范围', value: val(d?.budgetStandard ?? d?.budgetSubStandard ?? '') },
-        { label: '入住周期', value: val(d?.timeline ?? '') },
-      ]
+  const infoRows: Array<{ label: string; value: string }> = [
+    { label: '项目城市', value: val(d?.projectLocation ?? d?.userCity ?? '') },
+    { label: '项目类型', value: val(d?.projectType ?? '') },
+    { label: '实际面积', value: d?.projectArea ? `${d.projectArea} ㎡` : '未填写' },
+    { label: '预算范围', value: val(d?.budgetStandard ?? d?.budgetSubStandard ?? '') },
+    { label: '入住周期', value: val(d?.timeline ?? '') },
+  ]
 
-  const projectStatus = useMock
-    ? { lighting: '良好，半天有阳光', ventilation: '南北通透', ceilingHeight: '2.6-2.8米 (标准)', noise: '偶有噪音' }
-    : {
-        lighting: val(d?.lighting ?? ''),
-        ventilation: val(d?.ventilation ?? ''),
-        ceilingHeight: val(d?.ceilingHeight ?? ''),
-        noise: val(d?.noise ?? ''),
-      }
+  const projectStatus = {
+    lighting: val(d?.lighting ?? ''),
+    ventilation: val(d?.ventilation ?? ''),
+    ceilingHeight: val(d?.ceilingHeight ?? ''),
+    noise: val(d?.noise ?? ''),
+  }
 
   const statusCards: Array<{ icon: React.ElementType; title: string; value: string }> = [
     { icon: Sun, title: '采光', value: projectStatus.lighting },
@@ -217,39 +208,32 @@ export function RequirementsDoc({
   }
 
   type PersonaRow = { name: string; age: string; profession: string; height: string; stylePersona: string | null; mainActivitiesAndSpaces: string[]; otherActivityNote?: string; accent: 'amber' | 'slate'; isStyleTaker?: boolean }
-  const displayPersonas = useMock
-    ? [
-        { name: '父亲', age: '42岁', profession: '金融从业', height: '178cm', stylePersona: '理性秩序派' as string | null, mainActivitiesAndSpaces: ['高效办公（书房/办公角）', '家庭放松（客厅）', '收纳管理（玄关/衣柜系统）'], accent: 'amber' as const, isStyleTaker: true },
-        { name: '母亲', age: '39岁', profession: '品牌市场', height: '165cm', stylePersona: null, mainActivitiesAndSpaces: ['烹饪与备餐（厨房/轻食台）', '社交招待（餐厨/客厅）', '展示收纳（餐边/陈列区）'], accent: 'slate' as const, isStyleTaker: false },
-        { name: '女儿', age: '8岁', profession: '小学生', height: '128cm', stylePersona: null, mainActivitiesAndSpaces: ['学习阅读（书桌/阅读角）', '游戏玩耍（客厅/儿童区）', '收纳整理（玩具/衣物储物）'], accent: 'amber' as const, isStyleTaker: false },
-        { name: 'Mochi', age: '2岁', profession: '猫', height: '约25cm（肩高）', stylePersona: null, mainActivitiesAndSpaces: ['活动动线（猫墙/跑道）', '休息晒太阳（窗边/阳台）', '饮食如厕（喂食区/猫砂区）'], accent: 'slate' as const, isStyleTaker: false },
-      ]
-    : (() => {
-        if (d?.requirementsMembers?.length) {
-          return d.requirementsMembers.map((m, i) => ({
-            name: m.name,
-            age: m.age ?? '',
-            profession: m.profession ?? '',
-            height: '',
-            stylePersona: null,
-            mainActivitiesAndSpaces: (m.spaces ?? []).map((s) => (s.description?.trim() ? `${s.name}：${s.description}` : s.name)),
-            otherActivityNote: m.otherActivityNote ?? '',
-            accent: (i % 2 === 0 ? 'amber' : 'slate') as 'amber' | 'slate',
-            isStyleTaker: m.id === 'role',
-          })) as PersonaRow[]
-        }
-        const list: PersonaRow[] = []
-        if (d?.role) {
-          const name = ROLE_LABELS[d.role] || d.role
-          list.push({ name, age: '', profession: '', height: '', stylePersona: null, mainActivitiesAndSpaces: d?.favoriteSpace ?? [], otherActivityNote: '', accent: 'amber', isStyleTaker: true })
-        }
-        ;(d?.additionalMembers ?? []).forEach((memberId) => {
-          const label = MEMBER_LABELS[memberId] ?? memberId
-          const spaces = MEMBER_SPACES[memberId] ?? []
-          list.push({ name: label, age: '', profession: '', height: '', stylePersona: null, mainActivitiesAndSpaces: spaces, otherActivityNote: '', accent: 'slate', isStyleTaker: false })
-        })
-        return list
-      })()
+  const displayPersonas = (() => {
+    if (d?.requirementsMembers?.length) {
+      return d.requirementsMembers.map((m, i) => ({
+        name: m.name,
+        age: m.age ?? '',
+        profession: m.profession ?? '',
+        height: '',
+        stylePersona: null,
+        mainActivitiesAndSpaces: (m.spaces ?? []).map((s) => (s.description?.trim() ? `${s.name}：${s.description}` : s.name)),
+        otherActivityNote: m.otherActivityNote ?? '',
+        accent: (i % 2 === 0 ? 'amber' : 'slate') as 'amber' | 'slate',
+        isStyleTaker: m.id === 'role',
+      })) as PersonaRow[]
+    }
+    const list: PersonaRow[] = []
+    if (d?.role) {
+      const name = ROLE_LABELS[d.role] || d.role
+      list.push({ name, age: '', profession: '', height: '', stylePersona: null, mainActivitiesAndSpaces: d?.favoriteSpace ?? [], otherActivityNote: '', accent: 'amber', isStyleTaker: true })
+    }
+    ;(d?.additionalMembers ?? []).forEach((memberId) => {
+      const label = MEMBER_LABELS[memberId] ?? memberId
+      const spaces = MEMBER_SPACES[memberId] ?? []
+      list.push({ name: label, age: '', profession: '', height: '', stylePersona: null, mainActivitiesAndSpaces: spaces, otherActivityNote: '', accent: 'slate', isStyleTaker: false })
+    })
+    return list
+  })()
 
   const personas = displayPersonas
   const hasMemberData = personas.length > 0
@@ -308,24 +292,44 @@ export function RequirementsDoc({
 
   const [customNeedsNote, setCustomNeedsNote] = React.useState('')
   const [spaceOtherNote, setSpaceOtherNote] = React.useState('')
-  const [showInlinePreview, setShowInlinePreview] = React.useState(false)
   const [comfortSystemsEdit, setComfortSystemsEdit] = React.useState<string[]>([])
   const [fengshuiEdit, setFengshuiEdit] = React.useState('')
   const [storageFocusEdit, setStorageFocusEdit] = React.useState<string[]>([])
   const [membersEdit, setMembersEdit] = React.useState<RequirementsMember[]>([])
   const [customSpaceItemsEdit, setCustomSpaceItemsEdit] = React.useState<Array<{ name: string; description?: string }>>([])
 
-  const fengshuiResult = useMock ? '避开大众忌讳就行' : val(d?.fengshui ?? '')
-  const storageFocusResult = useMock ? ['衣帽间/衣柜系统', '厨房餐储收纳', '展示性收纳（书籍、收藏品）'] : (d?.storageFocus?.length ? d.storageFocus : [])
+  // Additional local states for "save-on-click" behavior
+  const [livingRoomNoteEdit, setLivingRoomNoteEdit] = React.useState('')
+  const [diningNoteEdit, setDiningNoteEdit] = React.useState('')
+  const [kitchenNoteEdit, setKitchenNoteEdit] = React.useState('')
+  const [bathroomNoteEdit, setBathroomNoteEdit] = React.useState('')
+  const [projectLocationEdit, setProjectLocationEdit] = React.useState('')
+  const [projectTypeEdit, setProjectTypeEdit] = React.useState('')
+  const [projectAreaEdit, setProjectAreaEdit] = React.useState('')
+  const [budgetStandardEdit, setBudgetStandardEdit] = React.useState('')
+  const [timelineEdit, setTimelineEdit] = React.useState('')
+  const [houseUsageEdit, setHouseUsageEdit] = React.useState('')
+
+  const [lightingEdit, setLightingEdit] = React.useState('')
+  const [ventilationEdit, setVentilationEdit] = React.useState('')
+  const [ceilingHeightEdit, setCeilingHeightEdit] = React.useState('')
+  const [noiseEdit, setNoiseEdit] = React.useState('')
+  const [coreSpacesEdit, setCoreSpacesEdit] = React.useState('')
+  const [childGrowthEdit, setChildGrowthEdit] = React.useState('')
+  const [guestStayEdit, setGuestStayEdit] = React.useState('')
+  const [futureChangesEdit, setFutureChangesEdit] = React.useState('')
+
+  const fengshuiResult = val(d?.fengshui ?? '')
+  const storageFocusResult = (d?.storageFocus?.length ? d.storageFocus : [])
 
   const LIVING_LABELS: Record<string, string> = { media: '影音娱乐', kids: '亲子互动', work: '办公学习', social: '社交会客', fitness: '健身运动', relax: '冥想放松' }
-  const livingItems = useMock ? ['影音娱乐', '社交会客', '冥想放松'] : ((d?.livingRoomFeature?.length ? d.livingRoomFeature.map((id) => LIVING_LABELS[id] || id) : []))
-  const diningItems = useMock ? ['平时就餐：3-4人', '节假日最多：7-10人'] : [val(d?.diningCount ?? '', '') ? `平时就餐：${d!.diningCount}` : '', val(d?.festivalDiningCount ?? '', '') ? `节假日最多：${d!.festivalDiningCount}` : ''].filter(Boolean)
+  const livingItems = ((d?.livingRoomFeature?.length ? d.livingRoomFeature.map((id) => LIVING_LABELS[id] || id) : []))
+  const diningItems = [val(d?.diningCount ?? '', '') ? `平时就餐：${d!.diningCount}` : '', val(d?.festivalDiningCount ?? '', '') ? `节假日最多：${d!.festivalDiningCount}` : ''].filter(Boolean)
   const COOKING_HABIT_LABELS: Record<string, string> = { heavy: '经常做饭（重油烟）', light: '偶尔做饭（轻食/简餐）', none: '基本点外卖（外出就餐）' }
   const SECOND_KITCHEN_LABELS: Record<string, string> = { no: '不需要（一个厨房足够）', yes_split: '需要中西分厨', yes_light: '需要独立辅食区（轻食区）' }
   const DRY_WET_LABELS: Record<string, string> = { strict: '必须彻底干湿分离（洗手台外置）', normal: '常规干湿分离（淋浴房/浴帘）', none: '无特殊要求' }
-  const kitchenItems = useMock ? ['烹饪习惯：经常做饭（重油烟）', '第二厨房：需要中西分厨'] : [val(d?.cookingHabit ?? '', '') ? `烹饪习惯：${COOKING_HABIT_LABELS[d!.cookingHabit!] ?? d!.cookingHabit}` : '', val(d?.secondKitchen ?? '', '') ? `第二厨房：${SECOND_KITCHEN_LABELS[d!.secondKitchen!] ?? d!.secondKitchen}` : ''].filter(Boolean)
-  const bathroomItems = useMock ? ['必须彻底干湿分离（洗手台外置）'] : (val(d?.dryWetSeparation ?? '', '') ? [DRY_WET_LABELS[d!.dryWetSeparation!] ?? d!.dryWetSeparation] : [])
+  const kitchenItems = [val(d?.cookingHabit ?? '', '') ? `烹饪习惯：${COOKING_HABIT_LABELS[d!.cookingHabit!] ?? d!.cookingHabit}` : '', val(d?.secondKitchen ?? '', '') ? `第二厨房：${SECOND_KITCHEN_LABELS[d!.secondKitchen!] ?? d!.secondKitchen}` : ''].filter(Boolean)
+  const bathroomItems = (val(d?.dryWetSeparation ?? '', '') ? [DRY_WET_LABELS[d!.dryWetSeparation!] ?? d!.dryWetSeparation] : [])
 
   const spaceResultMap: Record<string, { title: string; q: string; icon: React.ElementType; items: string[] }> = {
     living: { title: '客厅', q: 'Q2-13', icon: Sofa, items: ['影音娱乐', '社交会客', '冥想放松'] },
@@ -334,7 +338,7 @@ export function RequirementsDoc({
     bathroom: { title: '卫生间', q: 'Q2-15', icon: Bath, items: ['必须彻底干湿分离（洗手台外置）'] },
   }
 
-  const customSpaceItemsForTabs = (isEditing && updateData && !useMock) ? customSpaceItemsEdit : (d?.customSpaceItems ?? [])
+  const customSpaceItemsForTabs = (isEditing && updateData) ? customSpaceItemsEdit : (d?.customSpaceItems ?? [])
 
   const spaceTabsList: Array<{ key: string; label: string }> = [
     { key: 'living', label: '客厅' },
@@ -364,28 +368,11 @@ export function RequirementsDoc({
             : spaceTab.startsWith('custom-')
               ? (() => {
                   const i = parseInt(spaceTab.replace('custom-', ''), 10)
-                  const list = (isEditing && updateData && !useMock) ? customSpaceItemsEdit : (d?.customSpaceItems ?? [])
+                  const list = (isEditing && updateData) ? customSpaceItemsEdit : (d?.customSpaceItems ?? [])
                   const item = list[i]
                   return item?.description?.trim() ? [item.description] : []
                 })()
               : []
-
-  const currentSpaceNote =
-    spaceTab === 'living'
-      ? (d?.livingRoomNote ?? '')
-      : spaceTab === 'dining'
-        ? (d?.diningNote ?? '')
-        : spaceTab === 'kitchen'
-          ? (d?.kitchenNote ?? '')
-          : spaceTab === 'bathroom'
-            ? (d?.bathroomNote ?? '')
-            : spaceTab.startsWith('custom-')
-              ? (() => {
-                  const i = parseInt(spaceTab.replace('custom-', ''), 10)
-                  const list = (isEditing && updateData && !useMock) ? customSpaceItemsEdit : (d?.customSpaceItems ?? [])
-                  return list[i]?.description ?? ''
-                })()
-              : ''
 
   React.useEffect(() => {
     return () => {
@@ -416,7 +403,7 @@ export function RequirementsDoc({
   React.useEffect(() => {
     const justEnteredEdit = isEditing && !prevEditingRef.current
     prevEditingRef.current = isEditing
-    if (!justEnteredEdit || useMock || !d) return
+    if (!justEnteredEdit || !d) return
     const fromSmart = (d.smartHomeOptions ?? []).reduce((acc, label) => {
       const o = smartHomeOptions.find((x) => x.label === label)
       if (o) acc[o.key] = true
@@ -434,6 +421,24 @@ export function RequirementsDoc({
     setFengshuiEdit((d.fengshui ?? '').trim())
     setStorageFocusEdit(d.storageFocus ?? [])
     setSpaceOtherNote(d.spaceOtherNote ?? '')
+    setLivingRoomNoteEdit(d.livingRoomNote ?? '')
+    setDiningNoteEdit(d.diningNote ?? '')
+    setKitchenNoteEdit(d.kitchenNote ?? '')
+    setBathroomNoteEdit(d.bathroomNote ?? '')
+    setProjectLocationEdit(d.projectLocation ?? d.userCity ?? '')
+    setProjectTypeEdit(d.projectType ?? '')
+    setProjectAreaEdit(d.projectArea ?? '')
+    setBudgetStandardEdit(d.budgetStandard ?? d.budgetSubStandard ?? '')
+    setTimelineEdit(d.timeline ?? '')
+    setHouseUsageEdit(d.houseUsage ?? '')
+    setLightingEdit(d.lighting ?? '')
+    setVentilationEdit(d.ventilation ?? '')
+    setCeilingHeightEdit(d.ceilingHeight ?? '')
+    setNoiseEdit(d.noise ?? '')
+    setCoreSpacesEdit(d.coreSpaces ?? '')
+    setChildGrowthEdit(d.childGrowth ?? '')
+    setGuestStayEdit(d.guestStay ?? '')
+    setFutureChangesEdit(d.futureChanges ?? '')
     if (d.requirementsMembers?.length) {
       setMembersEdit(d.requirementsMembers)
     } else {
@@ -459,7 +464,7 @@ export function RequirementsDoc({
       setMembersEdit(list)
     }
     setCustomSpaceItemsEdit(d.customSpaceItems ?? [])
-  }, [isEditing, useMock, d])
+  }, [isEditing, d])
 
   const onPickPlanFiles = (files: FileList | null) => {
     if (!files || files.length === 0) return
@@ -488,14 +493,11 @@ export function RequirementsDoc({
     })
   }
 
-  const selectedSmartHome = smartHomeOptions.filter((o) => smartHomeSelected[o.key])
-  const selectedSpecialDevices = specialDeviceOptions.filter((o) => specialDeviceSelected[o.key])
-  const displaySmartHomeLabels = useMock ? selectedSmartHome.map((o) => o.label) : (d?.smartHomeOptions ?? [])
-  const displayDeviceLabels = useMock ? selectedSpecialDevices.map((o) => o.label) : (d?.devices ?? [])
-  const displayComfortLabels = useMock ? systemEquipments.map((x) => x.title) : (d?.comfortSystems ?? [])
+  const displaySmartHomeLabels = (d?.smartHomeOptions ?? [])
+  const displayDeviceLabels = (d?.devices ?? [])
+  const displayComfortLabels = (d?.comfortSystems ?? [])
 
   const isRequirementsEmpty =
-    !useMock &&
     !hasMemberData &&
     (d?.comfortSystems ?? []).length === 0 &&
     (d?.smartHomeOptions ?? []).length === 0 &&
@@ -507,93 +509,27 @@ export function RequirementsDoc({
     bathroomItems.length === 0
 
   // 空状态时：内嵌预览示例，保留在需求书内而非跳转
-  if (isRequirementsEmpty && showInlinePreview) {
-    return (
-      <div className="space-y-8 pb-24">
-        <div className="flex items-start justify-between gap-4">
-          <div className="min-w-0">
-            <div className="text-xs text-gray-500">项目交付 · 需求书</div>
-            <h1 className="mt-1 text-xl md:text-2xl font-semibold tracking-tight">项目需求书</h1>
-            <div className="mt-2 text-sm text-gray-600">
-              <span className="font-medium text-gray-900">{projectName}</span>
-              <span className="mx-2 text-gray-300">/</span>
-              <span>业主：{ownerDisplayName}</span>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={() => setShowInlinePreview(false)}
-            className="shrink-0 inline-flex items-center gap-2 rounded-2xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
-          >
-            返回
-          </button>
-        </div>
-        <div className="rounded-2xl border border-amber-200 bg-amber-50/50 px-4 py-2 text-sm text-amber-800">
-          以下为示例效果，完成风格测评与线索收集、转为项目后，您将看到基于真实数据的项目需求书。
-        </div>
-        <RequirementsDoc
-          isShowcase
-          projectName={projectName}
-          ownerDisplayName={ownerDisplayName}
-          onBackHome={() => setShowInlinePreview(false)}
-        />
-      </div>
-    )
-  }
+
 
   if (isRequirementsEmpty) {
     return (
-      <div className="space-y-8 pb-24">
-        <div className="flex items-start justify-between gap-4">
-          <div className="min-w-0">
-            <div className="text-xs text-gray-500">项目交付 · 需求书</div>
-            <h1 className="mt-1 text-xl md:text-2xl font-semibold tracking-tight">项目需求书</h1>
-            <div className="mt-2 text-sm text-gray-600">
-              <span className="font-medium text-gray-900">{projectName}</span>
-              <span className="mx-2 text-gray-300">/</span>
-              <span>业主：{ownerDisplayName}</span>
-            </div>
-          </div>
+      <div className="flex flex-col items-center justify-center py-24 px-6 text-center">
+        <div className="w-20 h-20 rounded-full bg-gray-50 flex items-center justify-center mb-6">
+          <FileText size={40} className="text-gray-300" />
+        </div>
+        <h3 className="text-xl font-bold text-gray-900 mb-2">暂无项目需求书</h3>
+        <p className="text-gray-500 max-w-md mb-8">
+          您尚未完成深度测评，完成风格测评与线索收集后，系统将自动生成基于真实数据的需求书。
+        </p>
+        {onGoToStyleEval && (
           <button
-            type="button"
-            onClick={() => setShowInlinePreview(true)}
-            className="shrink-0 inline-flex items-center gap-2 rounded-2xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+            onClick={onGoToStyleEval}
+            className="inline-flex items-center gap-2 rounded-2xl bg-[#EF6B00] px-8 py-4 text-lg font-bold text-white hover:bg-[#E65100] transition-all shadow-lg shadow-orange-200"
           >
-            预览示例
-            <ChevronRight size={16} />
+            开始风格测评
+            <ChevronRight size={20} />
           </button>
-        </div>
-
-        <div className="bg-white border border-gray-100 rounded-3xl shadow-sm p-10 md:p-14">
-          <div className="max-w-md mx-auto text-center">
-            <div className="mx-auto w-16 h-16 rounded-2xl bg-[#FF9C3E]/10 text-[#FF9C3E] flex items-center justify-center">
-              <FileText size={28} />
-            </div>
-            <h2 className="mt-6 text-xl font-semibold text-gray-900">暂无需求内容</h2>
-            <p className="mt-3 text-sm text-gray-600 leading-relaxed">
-              项目需求书需基于风格测评与线索收集生成。原则上需先完成家居风格测评、项目线索收集，线索转换为项目后才会进入项目中心。若您已在项目中心但需求书为空，请从风格测评开始补齐流程。
-            </p>
-            <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
-              {onGoToStyleEval && (
-                <button
-                  type="button"
-                  onClick={onGoToStyleEval}
-                  className="inline-flex items-center justify-center rounded-2xl bg-[#FF9C3E] text-white font-semibold px-6 py-3 hover:brightness-95 active:scale-[0.99] transition"
-                >
-                  从风格测评开始
-                  <ChevronRight size={18} className="ml-1" />
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={onBackHome}
-                className="inline-flex items-center justify-center rounded-2xl border border-gray-200 bg-white px-6 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
-              >
-                返回
-              </button>
-            </div>
-          </div>
-        </div>
+        )}
       </div>
     )
   }
@@ -604,38 +540,69 @@ export function RequirementsDoc({
         <div className="min-w-0">
           <div className="text-xs text-gray-500">项目交付 · 需求书</div>
           <h1 className="mt-1 text-xl md:text-2xl font-semibold tracking-tight">项目需求书</h1>
-          <div className="mt-2 text-sm text-gray-600">
-            <span className="font-medium text-gray-900">{projectName}</span>
-            <span className="mx-2 text-gray-300">/</span>
-            <span>业主：{ownerDisplayName}</span>
+          <div className="mt-2 text-sm text-gray-600 flex flex-wrap items-center gap-x-4 gap-y-2">
+            <div className="flex items-center gap-1">
+              <span className="font-medium text-gray-900">{projectName}</span>
+              <span className="mx-1 text-gray-300">/</span>
+              <span>业主：{ownerDisplayName}</span>
+            </div>
+            {lastUpdated && (
+              <div className="flex items-center gap-1 text-xs text-gray-400">
+                <Clock size={12} />
+                最后更新：{lastUpdated}
+              </div>
+            )}
           </div>
-          {useMock ? (
-            <div className="mt-3 inline-flex items-center gap-2 rounded-2xl border border-amber-200 bg-amber-50/50 px-3 py-2 text-xs text-amber-800">
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-              此为预览示例，仅支持查看与退出，不可编辑或提交。
-            </div>
-          ) : !isEditing ? (
-            <div className="mt-3 inline-flex items-center gap-2 rounded-2xl border border-gray-100 bg-white px-3 py-2 text-xs text-gray-600">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#FF9C3E]" />
-              当前为只读状态；如需修改，请点击底部「编辑」。
-            </div>
-          ) : (
-            <div className="mt-3 inline-flex items-center gap-2 rounded-2xl border border-[#FF9C3E]/20 bg-[#FF9C3E]/10 px-3 py-2 text-xs font-semibold text-[#C87800]">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#FF9C3E]" />
-              编辑模式已开启
-            </div>
-          )}
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            {!isEditing ? (
+              <div className="inline-flex items-center gap-2 rounded-2xl border border-gray-100 bg-white px-3 py-2 text-xs text-gray-600">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#FF9C3E]" />
+                当前为只读状态；如需修改，请点击底部「编辑」。
+              </div>
+            ) : (
+              <div className="inline-flex items-center gap-2 rounded-2xl border border-[#FF9C3E]/20 bg-[#FF9C3E]/10 px-3 py-2 text-xs font-semibold text-[#C87800]">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#FF9C3E]" />
+                编辑模式已开启
+              </div>
+            )}
+
+            {isPublished && (
+              <div className="flex items-center gap-2">
+                <div className={`inline-flex items-center gap-2 rounded-2xl px-3 py-2 text-xs font-bold border ${
+                  customerStatus === 'agreed' 
+                    ? 'bg-emerald-50 text-emerald-700 border-emerald-100' 
+                    : customerStatus === 'rejected'
+                    ? 'bg-red-50 text-red-700 border-red-100'
+                    : 'bg-blue-50 text-blue-700 border-blue-100'
+                }`}>
+                  <Users size={12} />
+                  客户状态：{
+                    customerStatus === 'agreed' ? '已同意' : 
+                    customerStatus === 'rejected' ? '已拒绝' : '未读'
+                  }
+                </div>
+                
+                {/* Simulation controls for builder */}
+                <div className="flex items-center gap-1 bg-gray-50 p-1 rounded-xl border border-gray-100">
+                  <span className="text-[10px] text-gray-400 px-1">模拟状态:</span>
+                  {(['unread', 'agreed', 'rejected'] as const).map((s) => (
+                    <button
+                      key={s}
+                      onClick={() => onSetCustomerStatus?.(s)}
+                      className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-all ${
+                        customerStatus === s 
+                          ? 'bg-white text-gray-900 shadow-sm' 
+                          : 'text-gray-400 hover:text-gray-600'
+                      }`}
+                    >
+                      {s === 'unread' ? '未读' : s === 'agreed' ? '同意' : '拒绝'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
-        {onShowShowcase && !useMock ? (
-          <button
-            type="button"
-            onClick={onShowShowcase}
-            className="shrink-0 inline-flex items-center gap-2 rounded-2xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
-          >
-            展示页
-            <ChevronRight size={16} />
-          </button>
-        ) : null}
       </div>
 
       <section className="space-y-4">
@@ -654,15 +621,15 @@ export function RequirementsDoc({
             </div>
 
             <div className="space-y-3">
-              {isEditing && updateData && !useMock ? (
+              {isEditing && updateData ? (
                 <>
                   <div className="flex flex-col gap-1">
                     <label className="text-xs text-gray-500">项目城市</label>
-                    <input value={d?.projectLocation ?? ''} onChange={(e) => updateData({ projectLocation: e.target.value })} className="rounded-xl border border-gray-200 px-3 py-2 text-sm" placeholder="项目城市" />
+                    <input value={projectLocationEdit} onChange={(e) => setProjectLocationEdit(e.target.value)} className="rounded-xl border border-gray-200 px-3 py-2 text-sm" placeholder="项目城市" />
                   </div>
                   <div className="flex flex-col gap-1">
                     <label className="text-xs text-gray-500">项目类型</label>
-                    <select value={d?.projectType ?? ''} onChange={(e) => updateData({ projectType: e.target.value })} className="rounded-xl border border-gray-200 px-3 py-2 text-sm">
+                    <select value={projectTypeEdit} onChange={(e) => setProjectTypeEdit(e.target.value)} className="rounded-xl border border-gray-200 px-3 py-2 text-sm">
                       <option value="">请选择</option>
                       {['独栋别墅', '平层公寓', '复式联排'].map((opt) => (
                         <option key={opt} value={opt}>{opt}</option>
@@ -671,11 +638,11 @@ export function RequirementsDoc({
                   </div>
                   <div className="flex flex-col gap-1">
                     <label className="text-xs text-gray-500">实际面积（㎡）</label>
-                    <input type="number" value={d?.projectArea ?? ''} onChange={(e) => updateData({ projectArea: e.target.value })} className="rounded-xl border border-gray-200 px-3 py-2 text-sm" placeholder="面积" />
+                    <input type="number" value={projectAreaEdit} onChange={(e) => setProjectAreaEdit(e.target.value)} className="rounded-xl border border-gray-200 px-3 py-2 text-sm" placeholder="面积" />
                   </div>
                   <div className="flex flex-col gap-1">
                     <label className="text-xs text-gray-500">预算范围</label>
-                    <select value={d?.budgetStandard ?? ''} onChange={(e) => updateData({ budgetStandard: e.target.value })} className="rounded-xl border border-gray-200 px-3 py-2 text-sm">
+                    <select value={budgetStandardEdit} onChange={(e) => setBudgetStandardEdit(e.target.value)} className="rounded-xl border border-gray-200 px-3 py-2 text-sm">
                       <option value="">请选择</option>
                       {[
                         { value: 'A', label: '精工全案高定 (5,000 - 8,000)' },
@@ -690,7 +657,7 @@ export function RequirementsDoc({
                   </div>
                   <div className="flex flex-col gap-1">
                     <label className="text-xs text-gray-500">入住周期</label>
-                    <select value={d?.timeline ?? ''} onChange={(e) => updateData({ timeline: e.target.value })} className="rounded-xl border border-gray-200 px-3 py-2 text-sm">
+                    <select value={timelineEdit} onChange={(e) => setTimelineEdit(e.target.value)} className="rounded-xl border border-gray-200 px-3 py-2 text-sm">
                       <option value="">请选择</option>
                       {['3个月内', '3-6个月', '半年到一年', '一年以上'].map((opt) => (
                         <option key={opt} value={opt}>{opt}</option>
@@ -699,7 +666,7 @@ export function RequirementsDoc({
                   </div>
                   <div className="flex flex-col gap-1">
                     <label className="text-xs text-gray-500">房屋用途</label>
-                    <select value={d?.houseUsage ?? ''} onChange={(e) => updateData({ houseUsage: e.target.value })} className="rounded-xl border border-gray-200 px-3 py-2 text-sm">
+                    <select value={houseUsageEdit} onChange={(e) => setHouseUsageEdit(e.target.value)} className="rounded-xl border border-gray-200 px-3 py-2 text-sm">
                       <option value="">请选择</option>
                       {['改善房', '刚需房', '投资房', '度假房/第二居所'].map((opt) => (
                         <option key={opt} value={opt}>{opt}</option>
@@ -730,17 +697,17 @@ export function RequirementsDoc({
               <div className="font-semibold">项目现状（Q2-5）</div>
             </div>
 
-            {isEditing && updateData && !useMock ? (
+            {isEditing && updateData ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {[
-                  { key: 'lighting' as const, label: '采光', options: ['极佳，全天有阳光', '良好，半天有阳光', '一般，需要开灯', '较差，采光受限'] },
-                  { key: 'ventilation' as const, label: '通风', options: ['南北通透', '通风良好', '单面通风', '通风较差'] },
-                  { key: 'ceilingHeight' as const, label: '层高', options: ['2.8米以上 (宽敞)', '2.6-2.8米 (标准)', '2.6米以下 (偏低)'] },
-                  { key: 'noise' as const, label: '噪音', options: ['非常安静', '偶有噪音', '临街/较吵', '非常吵闹'] },
-                ].map(({ key, label, options }) => (
+                  { key: 'lighting' as const, label: '采光', value: lightingEdit, setter: setLightingEdit, options: ['极佳，全天有阳光', '良好，半天有阳光', '一般，需要开灯', '较差，采光受限'] },
+                  { key: 'ventilation' as const, label: '通风', value: ventilationEdit, setter: setVentilationEdit, options: ['南北通透', '通风良好', '单面通风', '通风较差'] },
+                  { key: 'ceilingHeight' as const, label: '层高', value: ceilingHeightEdit, setter: setCeilingHeightEdit, options: ['2.8米以上 (宽敞)', '2.6-2.8米 (标准)', '2.6米以下 (偏低)'] },
+                  { key: 'noise' as const, label: '噪音', value: noiseEdit, setter: setNoiseEdit, options: ['非常安静', '偶有噪音', '临街/较吵', '非常吵闹'] },
+                ].map(({ key, label, value, setter, options }) => (
                   <div key={key} className="rounded-2xl border border-gray-100 bg-[#FFFDF3] p-4">
                     <label className="text-xs text-gray-500 block mb-2">{label}</label>
-                    <select value={d?.[key] ?? ''} onChange={(e) => updateData({ [key]: e.target.value })} className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm">
+                    <select value={value} onChange={(e) => setter(e.target.value)} className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm">
                       <option value="">请选择</option>
                       {options.map((opt) => (
                         <option key={opt} value={opt}>{opt}</option>
@@ -772,7 +739,7 @@ export function RequirementsDoc({
 
       <section className="space-y-4">
         <SectionTitle title="空间规划（Q2-9）" />
-        {(useMock || d?.coreSpaces || d?.childGrowth || d?.guestStay || d?.futureChanges || (isEditing && updateData && !useMock)) ? (
+        {(d?.coreSpaces || d?.childGrowth || d?.guestStay || d?.futureChanges || (isEditing && updateData)) ? (
           <div className="bg-white border border-gray-100 rounded-3xl shadow-sm p-6">
             <div className="flex items-center gap-2 mb-4">
               <span className="w-1 h-4 rounded-full bg-[#EF6B00]" />
@@ -789,22 +756,22 @@ export function RequirementsDoc({
                 while ((m = re.exec(str)) !== null) counts[m[2]] = parseInt(m[1], 10)
                 return counts
               }
-              const raw = useMock ? '1客厅1餐厅1主卧室1次卧室1主卫浴室1公卫浴室' : (d?.coreSpaces ?? '')
-              const counts = parseCounts(raw)
+              const raw = (d?.coreSpaces ?? '')
+              const counts = parseCounts(isEditing ? coreSpacesEdit : raw)
               const fullOptionList = Array.from(new Set([...baseOptions, ...customNames, ...Object.keys(counts)]))
               const entries = fullOptionList.filter((k) => (counts[k] ?? 0) > 0).map((k) => ({ name: k, count: counts[k] ?? 0 }))
               const updateCoreCount = (name: string, val: number) => {
-                if (!updateData || useMock) return
                 const next = { ...counts, [name]: Math.max(0, val) }
                 const newStr = fullOptionList.filter((k) => (next[k] ?? 0) > 0).map((k) => `${next[k]}${k}`).join('')
-                updateData({ coreSpaces: newStr })
+                setCoreSpacesEdit(newStr)
               }
               const addCustomSpaceOption = (newName: string) => {
-                if (!updateData || useMock || !newName?.trim()) return
+                if (!updateData || !newName?.trim()) return
                 const next = [...customNames, newName.trim()]
                 updateData({ customCoreSpaceOptions: next })
+                onSave?.()
               }
-              const isEditable = isEditing && updateData && !useMock
+              const isEditable = isEditing && updateData
               return (
                 <>
                   {isEditable ? (
@@ -837,6 +804,59 @@ export function RequirementsDoc({
                       </div>
                     </div>
                   ) : null}
+
+                  {isEditable ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div className="rounded-2xl border border-gray-100 bg-[#FFFDF3] p-4">
+                        <div className="text-xs font-semibold text-gray-500 mb-3">成长变化（Q2-10）</div>
+                        <select value={childGrowthEdit} onChange={(e) => setChildGrowthEdit(e.target.value)} className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm">
+                          <option value="">请选择</option>
+                          {['暂不考虑', '近期考虑', '长期规划'].map((opt) => (
+                            <option key={opt} value={opt}>{opt}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="rounded-2xl border border-gray-100 bg-[#FFFDF3] p-4">
+                        <div className="text-xs font-semibold text-gray-500 mb-3">亲友留宿（Q2-11）</div>
+                        <select value={guestStayEdit} onChange={(e) => setGuestStayEdit(e.target.value)} className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm">
+                          <option value="">请选择</option>
+                          {['不常留宿', '偶尔留宿', '经常留宿'].map((opt) => (
+                            <option key={opt} value={opt}>{opt}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="rounded-2xl border border-gray-100 bg-[#FFFDF3] p-4">
+                        <div className="text-xs font-semibold text-gray-500 mb-3">未来变动（Q2-12）</div>
+                        <select value={futureChangesEdit} onChange={(e) => setFutureChangesEdit(e.target.value)} className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm">
+                          <option value="">请选择</option>
+                          {['无大变动', '可能有变', '确定有变'].map((opt) => (
+                            <option key={opt} value={opt}>{opt}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      {d?.childGrowth && (
+                        <div className="rounded-2xl border border-gray-100 bg-[#FFFDF3] p-4">
+                          <div className="text-xs font-semibold text-gray-500 mb-1">成长变化</div>
+                          <div className="text-sm text-gray-900">{d.childGrowth}</div>
+                        </div>
+                      )}
+                      {d?.guestStay && (
+                        <div className="rounded-2xl border border-gray-100 bg-[#FFFDF3] p-4">
+                          <div className="text-xs font-semibold text-gray-500 mb-1">亲友留宿</div>
+                          <div className="text-sm text-gray-900">{d.guestStay}</div>
+                        </div>
+                      )}
+                      {d?.futureChanges && (
+                        <div className="rounded-2xl border border-gray-100 bg-[#FFFDF3] p-4">
+                          <div className="text-xs font-semibold text-gray-500 mb-1">未来变动</div>
+                          <div className="text-sm text-gray-900">{d.futureChanges}</div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </>
               )
             })()}
@@ -994,7 +1014,7 @@ export function RequirementsDoc({
       <section className="space-y-4">
         <div className="flex items-center justify-between gap-4">
           <SectionTitle title="成员画像（Q2-6 核心成员）" />
-          {hasMemberData && !(isEditing && updateData && !useMock) ? (
+          {hasMemberData && !isEditing ? (
             <div className="hidden md:flex items-center gap-2 text-xs text-gray-500">
               <Users size={14} className="text-gray-400" />
               <span className="font-semibold text-gray-400">Q2-6</span>
@@ -1004,7 +1024,7 @@ export function RequirementsDoc({
           ) : null}
         </div>
 
-        {isEditing && updateData && !useMock ? (
+        {isEditing && updateData ? (
           <div className="space-y-5">
             {membersEdit.map((member, memberIdx) => (
               <div key={member.id} className="bg-white border border-gray-100 rounded-3xl shadow-sm p-6">
@@ -1198,10 +1218,10 @@ export function RequirementsDoc({
                         ) : null}
                       </div>
 
-                      {p.isStyleTaker && (useMock ? p.stylePersona : d?.styleName?.trim()) ? (
+                      {p.isStyleTaker && (d?.styleName?.trim()) ? (
                         <div className="mt-2">
                           <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-[#FF9C3E]/10 text-[#C87800]">
-                            风格人格：{useMock ? p.stylePersona : d?.styleName}
+                            风格人格：{d?.styleName}
                           </span>
                         </div>
                       ) : null}
@@ -1262,7 +1282,7 @@ export function RequirementsDoc({
               </div>
             </div>
             <div className="p-6">
-              {isEditing && updateData && !useMock ? (
+              {isEditing && updateData ? (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {systemEquipments.map((x) => {
                     const checked = comfortSystemsEdit.includes(x.title)
@@ -1455,7 +1475,7 @@ export function RequirementsDoc({
               </div>
             </div>
             <div className="p-6">
-              {isEditing && updateData && !useMock ? (
+              {isEditing && updateData ? (
                 <select
                   value={fengshuiEdit}
                   onChange={(e) => setFengshuiEdit(e.target.value)}
@@ -1466,7 +1486,7 @@ export function RequirementsDoc({
                     <option key={opt} value={opt}>{opt}</option>
                   ))}
                 </select>
-              ) : (useMock && fengshuiResult) || (d?.fengshui?.trim()) ? (
+              ) : (d?.fengshui?.trim()) ? (
                 <div className="rounded-2xl border border-gray-100 bg-[#FFFDF3] p-4 text-sm text-gray-700 leading-relaxed">
                   {fengshuiResult}
                 </div>
@@ -1492,7 +1512,7 @@ export function RequirementsDoc({
               </div>
             </div>
             <div className="p-6">
-              {isEditing && updateData && !useMock ? (
+              {isEditing && updateData ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                   {STORAGE_FOCUS_OPTIONS.map((opt) => {
                     const checked = storageFocusEdit.includes(opt)
@@ -1548,13 +1568,11 @@ export function RequirementsDoc({
                   className="w-full min-h-[140px] rounded-2xl border border-gray-100 bg-[#FFFDF3] px-4 py-3 text-sm text-gray-800 placeholder:text-gray-400 outline-none focus:ring-2 focus:ring-[#FF9C3E]/20"
                 />
               ) : (() => {
-                const fromData = !useMock && (
+                const fromData = (
                   (d?.otherNeeds?.trim()) ||
                   (Array.isArray(d?.bottomLine) && d.bottomLine.length > 0)
                 )
-                const displayText = useMock
-                  ? '其他补充：希望儿童房预留成长空间。\n\n底线与妥协：\n• 绝对要环保（哪怕多花钱，也要进场就能住，没味儿、没甲醛）\n• 收纳够强大（空间利用率要高，东西放得下、找得到）'
-                  : fromData
+                const displayText = fromData
                     ? [
                         d?.otherNeeds?.trim(),
                         (d?.bottomLine ?? []).length
@@ -1600,7 +1618,7 @@ export function RequirementsDoc({
                   {tab.label}
                 </TabPill>
               ))}
-              {isEditing && updateData && !useMock && (
+              {isEditing && updateData && (
                 <button type="button" onClick={() => { const len = customSpaceItemsEdit.length; setCustomSpaceItemsEdit((prev) => [...prev, { name: '', description: '' }]); setSpaceTab(`custom-${len}`) }} className="inline-flex items-center gap-1.5 rounded-xl border border-dashed border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-500 hover:bg-white hover:border-[#FF9C3E]/30 transition-colors">
                   <Plus size={14} /> 添加空间
                 </button>
@@ -1614,16 +1632,28 @@ export function RequirementsDoc({
                 <activeSpace.icon size={18} />
               </div>
               <div className="mt-3 text-sm font-semibold text-gray-900">需求说明</div>
-              {isEditing && updateData && !useMock ? (
+              {isEditing && updateData ? (
                 <textarea
-                  value={spaceTab.startsWith('custom-') ? (customSpaceItemsEdit[parseInt(spaceTab.replace('custom-', ''), 10)]?.description ?? '') : (spaceTab === 'living' ? (d?.livingRoomNote ?? '') : spaceTab === 'dining' ? (d?.diningNote ?? '') : spaceTab === 'kitchen' ? (d?.kitchenNote ?? '') : (d?.bathroomNote ?? ''))}
+                  value={
+                    spaceTab.startsWith('custom-') 
+                      ? (customSpaceItemsEdit[parseInt(spaceTab.replace('custom-', ''), 10)]?.description ?? '') 
+                      : (spaceTab === 'living' 
+                          ? livingRoomNoteEdit 
+                          : spaceTab === 'dining' 
+                            ? diningNoteEdit 
+                            : spaceTab === 'kitchen' 
+                              ? kitchenNoteEdit 
+                              : bathroomNoteEdit)
+                  }
                   onChange={(e) => {
                     if (spaceTab.startsWith('custom-')) {
                       const i = parseInt(spaceTab.replace('custom-', ''), 10)
                       setCustomSpaceItemsEdit((prev) => { const n = [...prev]; n[i] = { ...n[i], description: e.target.value }; return n })
                     } else {
-                      const key = spaceTab === 'living' ? 'livingRoomNote' : spaceTab === 'dining' ? 'diningNote' : spaceTab === 'kitchen' ? 'kitchenNote' : 'bathroomNote'
-                      updateData({ [key]: e.target.value })
+                      if (spaceTab === 'living') setLivingRoomNoteEdit(e.target.value)
+                      else if (spaceTab === 'dining') setDiningNoteEdit(e.target.value)
+                      else if (spaceTab === 'kitchen') setKitchenNoteEdit(e.target.value)
+                      else if (spaceTab === 'bathroom') setBathroomNoteEdit(e.target.value)
                     }
                   }}
                   placeholder="填写该空间的需求说明..."
@@ -1631,12 +1661,20 @@ export function RequirementsDoc({
                 />
               ) : (
                 <div className="mt-2 text-sm text-gray-600 leading-relaxed whitespace-pre-wrap">
-                  {currentSpaceNote?.trim() || '本区聚焦该空间的关键使用方式与容量预期，便于后续方案与设备位落地。'}
+                  {(spaceTab.startsWith('custom-') 
+                    ? (customSpaceItemsEdit[parseInt(spaceTab.replace('custom-', ''), 10)]?.description ?? '') 
+                    : (spaceTab === 'living' 
+                        ? (d?.livingRoomNote ?? '') 
+                        : spaceTab === 'dining' 
+                          ? (d?.diningNote ?? '') 
+                          : spaceTab === 'kitchen' 
+                            ? (d?.kitchenNote ?? '') 
+                            : (d?.bathroomNote ?? '')))?.trim() || '本区聚焦该空间的关键使用方式与容量预期，便于后续方案与设备位落地。'}
                 </div>
               )}
             </div>
             <div className="md:col-span-2 space-y-3">
-              {isEditing && updateData && !useMock ? (
+              {isEditing && updateData ? (
                 (() => {
                   if (spaceTab === 'living') {
                     const current = d?.livingRoomFeature ?? []
@@ -1648,7 +1686,10 @@ export function RequirementsDoc({
                             <button
                               key={id}
                               type="button"
-                              onClick={() => updateData({ livingRoomFeature: checked ? current.filter((x) => x !== id) : [...current, id] })}
+                              onClick={() => {
+                                updateData({ livingRoomFeature: checked ? current.filter((x) => x !== id) : [...current, id] })
+                                onSave?.()
+                              }}
                               className={`flex items-center gap-3 rounded-2xl border px-4 py-3 text-left transition-colors ${checked ? 'border-[#FF9C3E]/30 bg-[#FF9C3E]/10' : 'border-gray-100 bg-white hover:bg-gray-50'}`}
                             >
                               <span className={`w-5 h-5 rounded-md border flex items-center justify-center shrink-0 ${checked ? 'bg-[#FF9C3E] border-[#FF9C3E]' : 'border-gray-200'}`} aria-hidden="true">
@@ -1668,7 +1709,10 @@ export function RequirementsDoc({
                           <label className="text-xs text-gray-500 block mb-2">平时就餐人数</label>
                           <div className="flex flex-wrap gap-2">
                             {['1-2人', '3-4人', '5-6人', '6人以上'].map((opt) => (
-                              <button key={opt} type="button" onClick={() => updateData({ diningCount: opt })} className={`px-3 py-2 rounded-xl text-sm font-medium border transition-colors ${d?.diningCount === opt ? 'border-[#FF9C3E] bg-[#FF9C3E]/10 text-[#C87800]' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>{opt}</button>
+                              <button key={opt} type="button" onClick={() => {
+                                updateData({ diningCount: opt })
+                                onSave?.()
+                              }} className={`px-3 py-2 rounded-xl text-sm font-medium border transition-colors ${d?.diningCount === opt ? 'border-[#FF9C3E] bg-[#FF9C3E]/10 text-[#C87800]' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>{opt}</button>
                             ))}
                           </div>
                         </div>
@@ -1676,7 +1720,10 @@ export function RequirementsDoc({
                           <label className="text-xs text-gray-500 block mb-2">节假日最多人数</label>
                           <div className="flex flex-wrap gap-2">
                             {['4-6人', '7-10人', '10人以上'].map((opt) => (
-                              <button key={opt} type="button" onClick={() => updateData({ festivalDiningCount: opt })} className={`px-3 py-2 rounded-xl text-sm font-medium border transition-colors ${d?.festivalDiningCount === opt ? 'border-[#FF9C3E] bg-[#FF9C3E]/10 text-[#C87800]' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>{opt}</button>
+                              <button key={opt} type="button" onClick={() => {
+                                updateData({ festivalDiningCount: opt })
+                                onSave?.()
+                              }} className={`px-3 py-2 rounded-xl text-sm font-medium border transition-colors ${d?.festivalDiningCount === opt ? 'border-[#FF9C3E] bg-[#FF9C3E]/10 text-[#C87800]' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>{opt}</button>
                             ))}
                           </div>
                         </div>
@@ -1686,14 +1733,23 @@ export function RequirementsDoc({
                   if (spaceTab === 'kitchen') {
                     return (
                       <div className="space-y-4">
-                        <div><label className="text-xs text-gray-500 block mb-1">烹饪习惯</label><select value={d?.cookingHabit ?? ''} onChange={(e) => updateData({ cookingHabit: e.target.value })} className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm"><option value="">请选择</option>{Object.entries(COOKING_HABIT_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></div>
-                        <div><label className="text-xs text-gray-500 block mb-1">第二厨房</label><select value={d?.secondKitchen ?? ''} onChange={(e) => updateData({ secondKitchen: e.target.value })} className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm"><option value="">请选择</option>{Object.entries(SECOND_KITCHEN_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></div>
+                        <div><label className="text-xs text-gray-500 block mb-1">烹饪习惯</label><select value={d?.cookingHabit ?? ''} onChange={(e) => {
+                          updateData({ cookingHabit: e.target.value })
+                          onSave?.()
+                        }} className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm"><option value="">请选择</option>{Object.entries(COOKING_HABIT_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></div>
+                        <div><label className="text-xs text-gray-500 block mb-1">第二厨房</label><select value={d?.secondKitchen ?? ''} onChange={(e) => {
+                          updateData({ secondKitchen: e.target.value })
+                          onSave?.()
+                        }} className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm"><option value="">请选择</option>{Object.entries(SECOND_KITCHEN_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></div>
                       </div>
                     )
                   }
                   if (spaceTab === 'bathroom') {
                     return (
-                      <div><label className="text-xs text-gray-500 block mb-1">干湿分离</label><select value={d?.dryWetSeparation ?? ''} onChange={(e) => updateData({ dryWetSeparation: e.target.value })} className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm"><option value="">请选择</option>{Object.entries(DRY_WET_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></div>
+                      <div><label className="text-xs text-gray-500 block mb-1">干湿分离</label><select value={d?.dryWetSeparation ?? ''} onChange={(e) => {
+                        updateData({ dryWetSeparation: e.target.value })
+                        onSave?.()
+                      }} className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm"><option value="">请选择</option>{Object.entries(DRY_WET_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></div>
                     )
                   }
                   if (spaceTab.startsWith('custom-')) {
@@ -1794,10 +1850,7 @@ export function RequirementsDoc({
       )}
 
       <div className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur border-t border-gray-100 z-40">
-        <div className="max-w-6xl mx-auto px-5 md:px-10 py-4 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
-          <div className="text-xs text-gray-500">
-            最后更新：刚刚 · 需求书为示例结构，可接入真实测评数据后自动生成。
-          </div>
+        <div className="max-w-6xl mx-auto px-5 md:px-10 py-4 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-end">
           <div className="flex gap-3">
             {onShowHistory && (
               <button
@@ -1813,7 +1866,7 @@ export function RequirementsDoc({
             <button
               type="button"
               onClick={() => {
-                if (isEditing && updateData && !useMock) {
+                if (isEditing && updateData) {
                   const smartLabels = smartHomeOptions.filter((o) => smartHomeSelected[o.key]).map((o) => o.label)
                   const deviceLabels = specialDeviceOptions.filter((o) => specialDeviceSelected[o.key]).map((o) => o.label)
                   updateData({
@@ -1824,22 +1877,36 @@ export function RequirementsDoc({
                     fengshui: fengshuiEdit.trim(),
                     storageFocus: storageFocusEdit,
                     spaceOtherNote: spaceOtherNote.trim(),
-                    livingRoomNote: d?.livingRoomNote ?? '',
-                    diningNote: d?.diningNote ?? '',
-                    kitchenNote: d?.kitchenNote ?? '',
-                    bathroomNote: d?.bathroomNote ?? '',
-                    coreSpaces: d?.coreSpaces ?? '',
+                    livingRoomNote: livingRoomNoteEdit,
+                    diningNote: diningNoteEdit,
+                    kitchenNote: kitchenNoteEdit,
+                    bathroomNote: bathroomNoteEdit,
+                    projectLocation: projectLocationEdit,
+                    projectType: projectTypeEdit,
+                    projectArea: projectAreaEdit,
+                    budgetStandard: budgetStandardEdit,
+                    timeline: timelineEdit,
+                    houseUsage: houseUsageEdit,
+                    lighting: lightingEdit,
+                    ventilation: ventilationEdit,
+                    ceilingHeight: ceilingHeightEdit,
+                    noise: noiseEdit,
+                    coreSpaces: coreSpacesEdit,
                     customCoreSpaceOptions: d?.customCoreSpaceOptions ?? [],
-                    childGrowth: d?.childGrowth ?? '',
-                    guestStay: d?.guestStay ?? '',
-                    futureChanges: d?.futureChanges ?? '',
+                    childGrowth: childGrowthEdit,
+                    guestStay: guestStayEdit,
+                    futureChanges: futureChangesEdit,
                     requirementsMembers: membersEdit,
                     floorPlanImages: planImages,
                     siteMedia: mediaFiles,
                     customSpaceItems: customSpaceItemsEdit,
                   })
+                  onSave?.()
                 }
-                setIsEditing?.(!isEditing)
+                if (!isEditing) {
+                  onSetCustomerStatus?.('unread')
+                }
+                setIsEditing(!isEditing)
               }}
               className={`flex-1 sm:flex-none inline-flex items-center justify-center gap-2 rounded-2xl px-5 py-3 text-sm font-semibold transition-colors ${
                 isEditing ? 'bg-gray-900 text-white hover:bg-gray-800' : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50'
@@ -1853,15 +1920,15 @@ export function RequirementsDoc({
               <button
                 type="button"
                 onClick={onPublish}
-                disabled={isPublished && !hasUnpublishedChanges}
+                disabled={!hasUnpublishedChanges}
                 className={`flex-1 sm:flex-none inline-flex items-center justify-center gap-2 rounded-2xl px-5 py-3 text-sm font-semibold transition-all ${
-                  isPublished && !hasUnpublishedChanges
+                  !hasUnpublishedChanges
                     ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                     : 'bg-[#EF6B00] text-white hover:bg-[#E65100]'
                 }`}
               >
                 <Send size={18} />
-                {isPublished && !hasUnpublishedChanges ? '已是最新发布' : '发布至 Home 端'}
+                {!hasUnpublishedChanges ? '暂无修改内容' : '发布至 Home 端'}
               </button>
             )}
           </div>

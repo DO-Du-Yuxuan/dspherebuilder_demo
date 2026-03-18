@@ -218,4 +218,7 @@ export interface FormData {
   dogSpaces?: string[];
   styleName?: string;
   bottomLine?: string[];
+  projectName?: string;
+  ownerName?: string;
+  customerStatus?: 'unread' | 'agreed' | 'rejected';
 }
