@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { tokens } from '../design-tokens';
 import { ROUTES, ORDER_STATUS_CONFIG } from '../utils/constants';
@@ -6,6 +6,29 @@ import { Search, ChevronRight, ArrowLeft } from 'lucide-react';
 import { Header } from '../components/Header';
 import { getCurrentUser, logout } from '../utils/authUtils';
 import { getOrders, Order } from '../utils/orderStorage';
+import { getOrderStatusColor } from '../utils/orderStatus';
+import BudgetSankeyWorkbench from '../components/BudgetSankeyWorkbench';
+import { buildBudgetSankeyFromDisplayOrders, type DisplayOrder } from '../utils/ordersToBudgetSankey';
+
+export type ViewMode = 'sankey' | 'list';
+
+const PHASE_OPTIONS = ['意向期', '订购期', '交付期', '验收期', '维保期'] as const;
+type PhaseOption = (typeof PHASE_OPTIONS)[number];
+
+const PHASE_TO_STATUS: Record<string, PhaseOption> = {
+  intention: '意向期',
+  ordering: '订购期',
+  delivery: '交付期',
+  acceptance: '验收期',
+  maintenance: '维保期',
+  red: '验收期',
+  gray: '意向期',
+};
+
+function getOrderPhase(order: Order): PhaseOption {
+  const color = getOrderStatusColor(order.status);
+  return PHASE_TO_STATUS[color] ?? '意向期';
+}
 
 export default function OrderSelectionPage() {
   const navigate = useNavigate();
@@ -13,17 +36,49 @@ export default function OrderSelectionPage() {
   const user = getCurrentUser();
   const project = location.state?.project || { name: '龙湖璟宸府(示例项目)', code: 'PRJT_R-049-T4-LHJCF' };
   
+  const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedPhases, setSelectedPhases] = useState<PhaseOption[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
 
   useEffect(() => {
     setOrders(getOrders());
   }, []);
 
-  const filteredOrders = orders.filter(order => 
-    order.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    order.orderNumber.toLowerCase().includes(searchQuery.toLowerCase())
+  const baseFilteredOrders = useMemo(() => 
+    orders.filter(order => 
+      order.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      order.orderNumber.toLowerCase().includes(searchQuery.toLowerCase())
+    ),
+    [orders, searchQuery]
   );
+
+  const listFilteredOrders = useMemo(() => {
+    if (selectedPhases.length === 0) return baseFilteredOrders;
+    return baseFilteredOrders.filter(order => selectedPhases.includes(getOrderPhase(order)));
+  }, [baseFilteredOrders, selectedPhases]);
+
+  const displayOrders: DisplayOrder[] = useMemo(() => 
+    baseFilteredOrders.map(o => ({
+      id: o.id,
+      title: o.title,
+      status: ORDER_STATUS_CONFIG[o.status as keyof typeof ORDER_STATUS_CONFIG]?.label ?? o.status,
+      date: undefined,
+      amount: o.price,
+    })),
+    [baseFilteredOrders]
+  );
+
+  const sankeyData = useMemo(
+    () => buildBudgetSankeyFromDisplayOrders(displayOrders),
+    [displayOrders]
+  );
+
+  const togglePhase = (phase: PhaseOption) => {
+    setSelectedPhases(prev => 
+      prev.includes(phase) ? prev.filter(p => p !== phase) : [...prev, phase]
+    );
+  };
 
   const handleLogout = () => {
     logout();
@@ -51,26 +106,86 @@ export default function OrderSelectionPage() {
             项目销售订单
           </h1>
 
-          {/* Search Bar */}
-          <div className="relative group">
-            <div className="absolute inset-y-0 left-5 flex items-center pointer-events-none">
-              <Search className="w-5 h-5 text-[#6B7280] group-focus-within:text-[#EF6B00] transition-colors" />
-            </div>
-            <input
-              type="text"
-              placeholder="搜索订单标题、订单编号"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-white border border-[#E5E7EB] rounded-[16px] py-5 pl-14 pr-6 text-[16px] outline-none focus:border-[#EF6B00] focus:ring-4 focus:ring-[#EF6B00]/5 transition-all shadow-sm"
-            />
-          </div>
-        </div>
+          {/* Tab Navigation */}
+          <nav className="flex gap-6 border-b border-[#E5E7EB] mb-6">
+            <button
+              type="button"
+              onClick={() => setViewMode('sankey')}
+              className={`pb-3 font-semibold text-[14px] transition-colors border-b-2 -mb-px ${
+                viewMode === 'sankey'
+                  ? 'text-[#0A0A0A] border-[#0A0A0A]'
+                  : 'text-[#9CA3AF] border-transparent hover:text-[#6B7280]'
+              }`}
+            >
+              预算树（桑基图）
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('list')}
+              className={`pb-3 font-semibold text-[14px] transition-colors border-b-2 -mb-px ${
+                viewMode === 'list'
+                  ? 'text-[#0A0A0A] border-[#0A0A0A]'
+                  : 'text-[#9CA3AF] border-transparent hover:text-[#6B7280]'
+              }`}
+            >
+              订单列表
+            </button>
+          </nav>
 
-        {/* Order List */}
-        <div className="grid gap-4">
-          {filteredOrders.length > 0 ? (
-            filteredOrders.map((order) => {
-              const statusInfo = ORDER_STATUS_CONFIG[order.status as keyof typeof ORDER_STATUS_CONFIG];
+          {viewMode === 'sankey' ? (
+            /* Sankey View: only show budget tree card */
+            sankeyData ? (
+              <div>
+                <BudgetSankeyWorkbench
+                  data={sankeyData}
+                  title="订单预算树"
+                  subtitle={`共 ${baseFilteredOrders.length} 笔订单`}
+                />
+              </div>
+            ) : (
+              <div className="bg-white rounded-[24px] border border-[#E5E7EB] p-12 text-center">
+                <p className="text-[#6B7280]">暂无订单数据，无法生成预算树</p>
+              </div>
+            )
+          ) : (
+            /* List View: search + phase filter + order list */
+            <>
+              <div className="space-y-4 mb-6">
+                <div className="relative group">
+                  <div className="absolute inset-y-0 left-5 flex items-center pointer-events-none">
+                    <Search className="w-5 h-5 text-[#6B7280] group-focus-within:text-[#EF6B00] transition-colors" />
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="搜索订单标题、订单编号"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full bg-white border border-[#E5E7EB] rounded-[16px] py-5 pl-14 pr-6 text-[16px] outline-none focus:border-[#EF6B00] focus:ring-4 focus:ring-[#EF6B00]/5 transition-all shadow-sm"
+                  />
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-[14px] text-[#6B7280] font-medium">阶段筛选:</span>
+                  {PHASE_OPTIONS.map(phase => (
+                    <button
+                      key={phase}
+                      type="button"
+                      onClick={() => togglePhase(phase)}
+                      className={`px-4 py-2 rounded-full text-[13px] font-medium transition-all ${
+                        selectedPhases.includes(phase)
+                          ? 'bg-[#EF6B00] text-white'
+                          : 'bg-[#F3F4F6] text-[#6B7280] hover:bg-[#E5E7EB]'
+                      }`}
+                    >
+                      {phase}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid gap-4">
+          {listFilteredOrders.length > 0 ? (
+            listFilteredOrders.map((order) => {
+              const statusInfo = ORDER_STATUS_CONFIG[order.status as keyof typeof ORDER_STATUS_CONFIG] ?? { label: order.status, color: '#94A3B8' };
               
               // Helper to get a darker version of the color for text
               const getDarkerColor = (hex: string) => {
@@ -134,6 +249,9 @@ export default function OrderSelectionPage() {
             <div className="bg-white rounded-[24px] border border-[#E5E7EB] p-12 text-center">
               <p className="text-[#6B7280]">没有找到匹配的订单</p>
             </div>
+          )}
+              </div>
+            </>
           )}
         </div>
       </main>

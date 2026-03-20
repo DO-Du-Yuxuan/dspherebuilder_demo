@@ -1,5 +1,18 @@
 import React from 'react'
-import type { RequirementsMember } from '../types'
+import { createPortal } from 'react-dom'
+import type { RequirementsMember, RequirementDocRevisionEntry } from '../types'
+import { buildRevisionSnapshotFormData, parseDocSnapshotJson } from '../utils/requirementDocRevisionSnapshot'
+import type { RequirementDocPayloadShape } from '../utils/requirementRevisionDiff'
+import {
+  diffRequirementDocFingerprints,
+  fingerprintFromSavedFormData,
+  fingerprintRequirementDocPayload,
+  formatAutoRevisionSummary,
+  formatRequirementPayloadAsDetail,
+  normalizeComfortSystemLabels,
+  requirementPayloadFromFormData,
+} from '../utils/requirementRevisionDiff'
+import { RequirementRevisionHistoryPanel, REVISIONS_PAGE_SIZE } from './RequirementRevisionHistoryPanel'
 import {
   FileText,
   ChevronRight,
@@ -39,8 +52,8 @@ import {
   History,
   Send,
   Edit2,
-  Save,
 } from 'lucide-react'
+
 
 /** 可添加的空间类型选项（下拉选择，与核心空间及常见扩展一致） */
 const ADDABLE_SPACE_TYPE_OPTIONS = [
@@ -83,14 +96,18 @@ export function RequirementsDoc({
   updateData,
   onBackHome,
   onGoToStyleEval,
-  onShowHistory,
+  onShowHistory: _onShowHistory,
   onPublish,
+  mergeSaveAndPublish,
   onSave,
   isPublished,
   hasUnpublishedChanges,
   lastUpdated,
   customerStatus,
   onSetCustomerStatus,
+  snapshotEmbedded,
+  snapshotOnClose: _snapshotOnClose,
+  snapshotRevisionLabel,
 }: {
   projectName: string
   ownerDisplayName: string
@@ -102,21 +119,53 @@ export function RequirementsDoc({
   /** 需求书为空时，引导用户从风格测评开始（风格测评→线索收集→转为项目→项目中心） */
   onGoToStyleEval?: () => void
   onShowHistory?: () => void
-  onPublish?: () => void
+  onPublish?: (dataToPublish?: import('../types').FormData) => void
+  /** 合并保存与发布：完成编辑弹窗按钮改为「确认修改并发布至Home端」，保存后自动调用 onPublish，不显示底部发布按钮 */
+  mergeSaveAndPublish?: boolean
   onSave?: () => void
   isPublished?: boolean
   hasUnpublishedChanges?: boolean
   lastUpdated?: string
   customerStatus?: 'unread' | 'agreed' | 'rejected'
   onSetCustomerStatus?: (status: 'unread' | 'agreed' | 'rejected') => void
+  /** 修订快照弹窗内：与主需求书同版式只读展示 */
+  snapshotEmbedded?: boolean
+  snapshotOnClose?: () => void
+  snapshotRevisionLabel?: string
 }) {
-  const d = data
+  const d = snapshotEmbedded ? data ?? null : data
   const empty = (v: string) => !v || !String(v).trim()
   const val = (v: string, fallback = '未填写') => (empty(v) ? fallback : String(v).trim())
 
+  if (snapshotEmbedded && !data) {
+    return (
+      <div className="rounded-2xl border border-red-100 bg-red-50 p-6 text-center text-sm text-red-800">
+        无法加载需求书快照
+      </div>
+    )
+  }
+
   const [isEditing, setIsEditing] = React.useState(false)
   const [showSubmitModal, setShowSubmitModal] = React.useState(false)
+  const [showFinishRevisionModal, setShowFinishRevisionModal] = React.useState(false)
+  const [showNoChangesModal, setShowNoChangesModal] = React.useState(false)
+  const [snapshotModalEntry, setSnapshotModalEntry] = React.useState<RequirementDocRevisionEntry | null>(null)
+  const [revisionUpdaterInput, setRevisionUpdaterInput] = React.useState('')
+  const [revisionSummaryInput, setRevisionSummaryInput] = React.useState('')
+  const [revisionSectionNoteInput, setRevisionSectionNoteInput] = React.useState('')
   const [spaceTab, setSpaceTab] = React.useState<string>('living')
+  /** 需求书正文 vs 变更记录 */
+  const [requirementsDocPage, setRequirementsDocPage] = React.useState<'content' | 'revisions'>('content')
+  const [revisionTablePage, setRevisionTablePage] = React.useState(1)
+  const [expandedRevisionId, setExpandedRevisionId] = React.useState<string | null>(null)
+  const baselineFingerprintRef = React.useRef<Record<string, string> | null>(null)
+  /** 弹窗内快照：仅展示该版需求书正文，不提供「变更记录」 */
+  const showRevisionTabs = !snapshotEmbedded
+  const showDocContent = snapshotEmbedded || requirementsDocPage !== 'revisions'
+
+  React.useEffect(() => {
+    if (snapshotEmbedded) setIsEditing(false)
+  }, [snapshotEmbedded])
 
   /** 与 Q2-9 核心空间一致，用于自定义空间名称选项 */
   const CORE_SPACE_OPTIONS = ['客厅', '餐厅', '开放厨房', '封闭厨房', '主卧室', '次卧室', '小孩卧室', '老人卧室', '主卫浴室', '公卫浴室', '次卫浴室', '书房', '花园']
@@ -207,20 +256,30 @@ export function RequirementsDoc({
     dog: d?.dogSpaces ?? [],
   }
 
-  type PersonaRow = { name: string; age: string; profession: string; height: string; stylePersona: string | null; mainActivitiesAndSpaces: string[]; otherActivityNote?: string; accent: 'amber' | 'slate'; isStyleTaker?: boolean }
+  type PersonaRow = { name: string; age: string; profession: string; height: string; stylePersona: string | null; mainActivitiesAndSpaces: string[]; otherActivityNote?: string; accent: 'amber' | 'slate'; isStyleTaker?: boolean; roleTag?: string }
+  const MEMBER_ROLE_OPTIONS_FOR_DISPLAY = ['男主人', '女主人', '长辈/长住家属', '女儿', '儿子', '猫猫', '狗狗', '其他']
   const displayPersonas = (() => {
     if (d?.requirementsMembers?.length) {
-      return d.requirementsMembers.map((m, i) => ({
-        name: m.name,
-        age: m.age ?? '',
-        profession: m.profession ?? '',
-        height: '',
-        stylePersona: null,
-        mainActivitiesAndSpaces: (m.spaces ?? []).map((s) => (s.description?.trim() ? `${s.name}：${s.description}` : s.name)),
-        otherActivityNote: m.otherActivityNote ?? '',
-        accent: (i % 2 === 0 ? 'amber' : 'slate') as 'amber' | 'slate',
-        isStyleTaker: m.id === 'role',
-      })) as PersonaRow[]
+      return d.requirementsMembers.map((m, i) => {
+        const isRole = MEMBER_ROLE_OPTIONS_FOR_DISPLAY.includes(m.name)
+        const role = isRole ? m.name : ''
+        const dn = (m.displayName ?? '').trim()
+        const legacy = !isRole && m.name?.trim() ? m.name.trim() : ''
+        const displayTitle = dn || legacy || role || '成员'
+        const roleTag = dn && role ? role : undefined
+        return {
+          name: displayTitle,
+          roleTag,
+          age: m.age ?? '',
+          profession: m.profession ?? '',
+          height: '',
+          stylePersona: null,
+          mainActivitiesAndSpaces: (m.spaces ?? []).map((s) => (s.description?.trim() ? `${s.name}：${s.description}` : s.name)),
+          otherActivityNote: m.otherActivityNote ?? '',
+          accent: (i % 2 === 0 ? 'amber' : 'slate') as 'amber' | 'slate',
+          isStyleTaker: m.id === 'role',
+        }
+      }) as PersonaRow[]
     }
     const list: PersonaRow[] = []
     if (d?.role) {
@@ -416,10 +475,36 @@ export function RequirementsDoc({
       return acc
     }, {} as Record<string, boolean>)
     setSpecialDeviceSelected((prev) => ({ ...prev, ...fromDevices }))
+    const comfortSystems = normalizeComfortSystemLabels(d.comfortSystems ?? [])
+    const storageFocus = d.storageFocus ?? []
+    const members = d.requirementsMembers?.length
+      ? d.requirementsMembers
+      : (() => {
+          const list: RequirementsMember[] = []
+          if (d.role) {
+            list.push({
+              id: 'role',
+              name: ROLE_LABELS[d.role] || d.role,
+              age: '',
+              profession: '',
+              spaces: (d.favoriteSpace ?? []).map((name) => ({ name, description: '' })),
+            })
+          }
+          ;(d.additionalMembers ?? []).forEach((memberId) => {
+            list.push({
+              id: memberId,
+              name: MEMBER_LABELS[memberId] ?? memberId,
+              age: '',
+              profession: '',
+              spaces: (MEMBER_SPACES[memberId] ?? []).map((name) => ({ name, description: '' })),
+            })
+          })
+          return list
+        })()
     setCustomNeedsNote((d.otherNeeds ?? '').trim())
-    setComfortSystemsEdit(d.comfortSystems ?? [])
+    setComfortSystemsEdit(comfortSystems)
     setFengshuiEdit((d.fengshui ?? '').trim())
-    setStorageFocusEdit(d.storageFocus ?? [])
+    setStorageFocusEdit(storageFocus)
     setSpaceOtherNote(d.spaceOtherNote ?? '')
     setLivingRoomNoteEdit(d.livingRoomNote ?? '')
     setDiningNoteEdit(d.diningNote ?? '')
@@ -439,32 +524,144 @@ export function RequirementsDoc({
     setChildGrowthEdit(d.childGrowth ?? '')
     setGuestStayEdit(d.guestStay ?? '')
     setFutureChangesEdit(d.futureChanges ?? '')
-    if (d.requirementsMembers?.length) {
-      setMembersEdit(d.requirementsMembers)
-    } else {
-      const list: RequirementsMember[] = []
-      if (d.role) {
-        list.push({
-          id: 'role',
-          name: ROLE_LABELS[d.role] || d.role,
-          age: '',
-          profession: '',
-          spaces: (d.favoriteSpace ?? []).map((name) => ({ name, description: '' })),
-        })
-      }
-      ;(d.additionalMembers ?? []).forEach((memberId) => {
-        list.push({
-          id: memberId,
-          name: MEMBER_LABELS[memberId] ?? memberId,
-          age: '',
-          profession: '',
-          spaces: (MEMBER_SPACES[memberId] ?? []).map((name) => ({ name, description: '' })),
-        })
-      })
-      setMembersEdit(list)
-    }
+    setMembersEdit(members)
     setCustomSpaceItemsEdit(d.customSpaceItems ?? [])
+    // 进入编辑时，用表单能正确解析的数据作为 baseline，避免与 form 选项不匹配的 mock 数据导致变更检测错误
+    const syncedPayload: RequirementDocPayloadShape = {
+      smartHomeOptions: smartHomeOptions.filter((o) => fromSmart[o.key]).map((o) => o.label),
+      devices: specialDeviceOptions.filter((o) => fromDevices[o.key]).map((o) => o.label),
+      otherNeeds: (d.otherNeeds ?? '').trim(),
+      comfortSystems,
+      fengshui: (d.fengshui ?? '').trim(),
+      storageFocus,
+      spaceOtherNote: d.spaceOtherNote ?? '',
+      livingRoomNote: d.livingRoomNote ?? '',
+      diningNote: d.diningNote ?? '',
+      kitchenNote: d.kitchenNote ?? '',
+      bathroomNote: d.bathroomNote ?? '',
+      coreSpaces: d.coreSpaces ?? '',
+      customCoreSpaceOptions: d.customCoreSpaceOptions ?? [],
+      childGrowth: d.childGrowth ?? '',
+      guestStay: d.guestStay ?? '',
+      futureChanges: d.futureChanges ?? '',
+      requirementsMembers: members,
+      floorPlanImages: d.floorPlanImages ?? [],
+      siteMedia: d.siteMedia ?? [],
+      customSpaceItems: d.customSpaceItems ?? [],
+      projectLocation: d.projectLocation ?? d.userCity ?? '',
+      projectType: d.projectType ?? '',
+      projectArea: d.projectArea ?? '',
+      budgetStandard: d.budgetStandard ?? d.budgetSubStandard ?? '',
+      timeline: d.timeline ?? '',
+      houseUsage: d.houseUsage ?? '',
+      lighting: d.lighting ?? '',
+      ventilation: d.ventilation ?? '',
+      ceilingHeight: d.ceilingHeight ?? '',
+      noise: d.noise ?? '',
+    }
+    baselineFingerprintRef.current = fingerprintRequirementDocPayload(syncedPayload)
   }, [isEditing, d])
+
+  const revisions: RequirementDocRevisionEntry[] = d?.requirementDocRevisions ?? []
+  React.useEffect(() => {
+    setRevisionTablePage(1)
+  }, [requirementsDocPage, revisions.length])
+
+  const buildRequirementDocEditsPayload = (): Partial<import('../types').FormData> => {
+    const smartLabels = smartHomeOptions.filter((o) => smartHomeSelected[o.key]).map((o) => o.label)
+    const deviceLabels = specialDeviceOptions.filter((o) => specialDeviceSelected[o.key]).map((o) => o.label)
+    return {
+      smartHomeOptions: smartLabels,
+      devices: deviceLabels,
+      otherNeeds: customNeedsNote.trim() || (d?.otherNeeds ?? ''),
+      comfortSystems: normalizeComfortSystemLabels(comfortSystemsEdit),
+      fengshui: fengshuiEdit.trim(),
+      storageFocus: storageFocusEdit,
+      spaceOtherNote: spaceOtherNote.trim(),
+      livingRoomNote: livingRoomNoteEdit,
+      diningNote: diningNoteEdit,
+      kitchenNote: kitchenNoteEdit,
+      bathroomNote: bathroomNoteEdit,
+      coreSpaces: coreSpacesEdit,
+      customCoreSpaceOptions: d?.customCoreSpaceOptions ?? [],
+      childGrowth: childGrowthEdit,
+      guestStay: guestStayEdit,
+      futureChanges: futureChangesEdit,
+      requirementsMembers: membersEdit,
+      floorPlanImages: planImages,
+      siteMedia: mediaFiles,
+      customSpaceItems: customSpaceItemsEdit,
+      projectLocation: projectLocationEdit,
+      projectType: projectTypeEdit,
+      projectArea: projectAreaEdit,
+      budgetStandard: budgetStandardEdit,
+      timeline: timelineEdit,
+      houseUsage: houseUsageEdit,
+      lighting: lightingEdit,
+      ventilation: ventilationEdit,
+      ceilingHeight: ceilingHeightEdit,
+      noise: noiseEdit,
+    }
+  }
+
+  const confirmSaveRequirementWithRevision = () => {
+    if (!updateData || !d) {
+      setShowFinishRevisionModal(false)
+      setIsEditing(false)
+      return
+    }
+    const payloadForSave = buildRequirementDocEditsPayload()
+    const fullAfterPayload = requirementPayloadFromFormData({
+      ...d,
+      ...payloadForSave,
+    } as import('../types').FormData)
+    const fpAfter = fingerprintRequirementDocPayload(fullAfterPayload)
+    const beforeFp = baselineFingerprintRef.current ?? fingerprintFromSavedFormData(d)
+    const labels = diffRequirementDocFingerprints(beforeFp, fpAfter)
+    const autoSummary = formatAutoRevisionSummary(labels)
+    const summary = revisionSummaryInput.trim() || autoSummary
+    const sectionFromLabels = labels.length ? labels.join('、') : undefined
+    const sectionNote = revisionSectionNoteInput.trim() || sectionFromLabels
+    const now = new Date()
+    const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+    const beforePayload = requirementPayloadFromFormData(d)
+    const entry: RequirementDocRevisionEntry = {
+      id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `rev-${Date.now()}`,
+      date: dateStr,
+      updater: revisionUpdaterInput.trim() || ownerDisplayName,
+      summary,
+      sectionNote: sectionNote || undefined,
+      docSnapshotJson: JSON.stringify({
+        v: 2,
+        formData: buildRevisionSnapshotFormData(d, payloadForSave),
+      }),
+      changeDetailBefore: beforePayload ? formatRequirementPayloadAsDetail(beforePayload) : undefined,
+      changeDetailAfter: formatRequirementPayloadAsDetail(fullAfterPayload),
+    }
+    const dataToPublish: import('../types').FormData = {
+      ...d,
+      ...payloadForSave,
+      requirementDocRevisions: [entry, ...(d?.requirementDocRevisions ?? [])],
+      customerStatus: 'unread',
+    }
+    updateData(
+      mergeSaveAndPublish
+        ? { ...dataToPublish }
+        : {
+            ...payloadForSave,
+            requirementDocRevisions: [entry, ...(d?.requirementDocRevisions ?? [])],
+          },
+    )
+    onSave?.()
+    setShowFinishRevisionModal(false)
+    setIsEditing(false)
+    setRequirementsDocPage('content')
+    setExpandedRevisionId(null)
+    setRevisionTablePage(1)
+    if (mergeSaveAndPublish && onPublish) {
+      onPublish(dataToPublish)
+    }
+  }
 
   const onPickPlanFiles = (files: FileList | null) => {
     if (!files || files.length === 0) return
@@ -538,21 +735,87 @@ export function RequirementsDoc({
     <div className="space-y-8 pb-24">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <div className="text-xs text-gray-500">项目交付 · 需求书</div>
-          <h1 className="mt-1 text-xl md:text-2xl font-semibold tracking-tight">项目需求书</h1>
-          <div className="mt-2 text-sm text-gray-600 flex flex-wrap items-center gap-x-4 gap-y-2">
-            <div className="flex items-center gap-1">
-              <span className="font-medium text-gray-900">{projectName}</span>
-              <span className="mx-1 text-gray-300">/</span>
-              <span>业主：{ownerDisplayName}</span>
-            </div>
-            {lastUpdated && (
-              <div className="flex items-center gap-1 text-xs text-gray-400">
-                <Clock size={12} />
-                最后更新：{lastUpdated}
-              </div>
+          <div className="text-xs text-gray-500">
+            {snapshotEmbedded ? (
+              <span>
+                修订快照（只读）
+                {snapshotRevisionLabel ? (
+                  <span className="text-gray-400 font-normal"> · {snapshotRevisionLabel}</span>
+                ) : null}
+              </span>
+            ) : (
+              <>项目交付 · {requirementsDocPage === 'revisions' ? '变更记录' : '用户需求'}</>
             )}
           </div>
+          {showRevisionTabs ? (
+            <div
+              className="mt-3 relative z-10 inline-flex rounded-2xl bg-gradient-to-b from-stone-100/90 to-stone-50/95 p-[3px] shadow-[inset_0_1px_1px_rgba(255,255,255,0.85),0_1px_2px_rgba(0,0,0,0.04)] ring-1 ring-stone-200/70"
+              role="tablist"
+              aria-label="用户需求/变更记录切换"
+            >
+              <button
+                type="button"
+                role="tab"
+                aria-selected={requirementsDocPage === 'content'}
+                onClick={() => {
+                  setSnapshotModalEntry(null)
+                  setRequirementsDocPage('content')
+                }}
+                className={`relative flex items-center justify-center gap-2 min-w-[7.5rem] sm:min-w-[8.5rem] px-4 py-2.5 rounded-[13px] text-sm font-semibold transition-all duration-200 ease-out ${
+                  requirementsDocPage === 'content'
+                    ? 'bg-white text-[#b45309] shadow-[0_2px_12px_rgba(239,107,0,0.14),0_0_0_1px_rgba(251,191,36,0.25)]'
+                    : 'text-stone-500 hover:text-stone-800 hover:bg-white/35 active:scale-[0.99]'
+                }`}
+              >
+                <FileText
+                  size={18}
+                  strokeWidth={requirementsDocPage === 'content' ? 2.25 : 2}
+                  className={requirementsDocPage === 'content' ? 'text-[#EF6B00]' : 'text-stone-400'}
+                />
+                <span>用户需求</span>
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={requirementsDocPage === 'revisions'}
+                onClick={() => setRequirementsDocPage('revisions')}
+                className={`relative flex items-center justify-center gap-2 min-w-[7.5rem] sm:min-w-[8.5rem] px-4 py-2.5 rounded-[13px] text-sm font-semibold transition-all duration-200 ease-out ${
+                  requirementsDocPage === 'revisions'
+                    ? 'bg-white text-[#b45309] shadow-[0_2px_12px_rgba(239,107,0,0.14),0_0_0_1px_rgba(251,191,36,0.25)]'
+                    : 'text-stone-500 hover:text-stone-800 hover:bg-white/35 active:scale-[0.99]'
+                }`}
+              >
+                <History
+                  size={18}
+                  strokeWidth={requirementsDocPage === 'revisions' ? 2.25 : 2}
+                  className={requirementsDocPage === 'revisions' ? 'text-[#EF6B00]' : 'text-stone-400'}
+                />
+                <span>变更记录</span>
+                {revisions.length > 0 ? (
+                  <span
+                    className={`tabular-nums text-[11px] font-bold min-h-[1.375rem] min-w-[1.375rem] flex items-center justify-center rounded-full px-1.5 transition-colors ${
+                      requirementsDocPage === 'revisions'
+                        ? 'bg-gradient-to-br from-amber-400/90 to-orange-500/95 text-white shadow-sm'
+                        : 'bg-stone-200/80 text-stone-600'
+                    }`}
+                  >
+                    {revisions.length > 99 ? '99+' : revisions.length}
+                  </span>
+                ) : null}
+              </button>
+            </div>
+          ) : null}
+          <div className="mt-2 text-sm text-gray-600">
+            <span className="font-medium text-gray-900">{projectName}</span>
+            <span className="mx-2 text-gray-300">/</span>
+            <span>业主：{ownerDisplayName}</span>
+          </div>
+          {lastUpdated && !snapshotEmbedded && (
+            <div className="mt-1 flex items-center gap-1 text-xs text-gray-400">
+              <Clock size={12} />
+              最后更新：{lastUpdated}
+            </div>
+          )}
           <div className="mt-3 flex flex-wrap items-center gap-3">
             {!isEditing ? (
               <div className="inline-flex items-center gap-2 rounded-2xl border border-gray-100 bg-white px-3 py-2 text-xs text-gray-600">
@@ -565,46 +828,15 @@ export function RequirementsDoc({
                 编辑模式已开启
               </div>
             )}
-
-            {isPublished && (
-              <div className="flex items-center gap-2">
-                <div className={`inline-flex items-center gap-2 rounded-2xl px-3 py-2 text-xs font-bold border ${
-                  customerStatus === 'agreed' 
-                    ? 'bg-emerald-50 text-emerald-700 border-emerald-100' 
-                    : customerStatus === 'rejected'
-                    ? 'bg-red-50 text-red-700 border-red-100'
-                    : 'bg-blue-50 text-blue-700 border-blue-100'
-                }`}>
-                  <Users size={12} />
-                  客户状态：{
-                    customerStatus === 'agreed' ? '已同意' : 
-                    customerStatus === 'rejected' ? '已拒绝' : '未读'
-                  }
-                </div>
-                
-                {/* Simulation controls for builder */}
-                <div className="flex items-center gap-1 bg-gray-50 p-1 rounded-xl border border-gray-100">
-                  <span className="text-[10px] text-gray-400 px-1">模拟状态:</span>
-                  {(['unread', 'agreed', 'rejected'] as const).map((s) => (
-                    <button
-                      key={s}
-                      onClick={() => onSetCustomerStatus?.(s)}
-                      className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-all ${
-                        customerStatus === s 
-                          ? 'bg-white text-gray-900 shadow-sm' 
-                          : 'text-gray-400 hover:text-gray-600'
-                      }`}
-                    >
-                      {s === 'unread' ? '未读' : s === 'agreed' ? '同意' : '拒绝'}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
         </div>
       </div>
 
+      {/* 用 hidden 切换而非条件卸载，避免切回「用户需求」时正文不渲染或视口异常 */}
+      <div
+        className={showDocContent ? 'space-y-8' : 'hidden'}
+        aria-hidden={!showDocContent}
+      >
       <section className="space-y-4">
         <SectionTitle title="项目概览" />
 
@@ -1819,6 +2051,74 @@ export function RequirementsDoc({
           </div>
         </div>
       </section>
+      </div>
+
+      {showRevisionTabs ? (
+      <section
+        className={`rounded-3xl border border-gray-100 bg-white shadow-sm p-6 md:p-8 min-h-[280px] ${
+          requirementsDocPage === 'revisions' ? '' : 'hidden'
+        }`}
+      >
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <SectionTitle title="需求变更与修订记录" />
+          {isPublished && (
+            <div className="flex items-center gap-2">
+              <div className={`inline-flex items-center gap-2 rounded-2xl px-3 py-2 text-xs font-bold border ${
+                customerStatus === 'agreed'
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
+                  : customerStatus === 'rejected'
+                  ? 'bg-red-50 text-red-700 border-red-100'
+                  : 'bg-blue-50 text-blue-700 border-blue-100'
+              }`}>
+                <Users size={12} />
+                客户状态：{
+                  customerStatus === 'agreed' ? '已同意' :
+                  customerStatus === 'rejected' ? '已拒绝' : '未读'
+                }
+              </div>
+              {onSetCustomerStatus && (
+                <div className="flex items-center gap-1 bg-gray-50 p-1 rounded-xl border border-gray-100">
+                  <span className="text-[10px] text-gray-400 px-1">模拟状态:</span>
+                  {(['unread', 'agreed', 'rejected'] as const).map((s) => (
+                    <button
+                      key={s}
+                      onClick={() => onSetCustomerStatus(s)}
+                      className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-all ${
+                        customerStatus === s
+                          ? 'bg-white text-gray-900 shadow-sm'
+                          : 'text-gray-400 hover:text-gray-600'
+                      }`}
+                    >
+                      {s === 'unread' ? '未读' : s === 'agreed' ? '同意' : '拒绝'}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+        {revisions.length > REVISIONS_PAGE_SIZE ? (
+          <p className="mt-2 text-xs text-stone-500">
+            共 {revisions.length} 条修订，时间轴与详细记录区域支持翻页浏览。
+          </p>
+        ) : null}
+        <RequirementRevisionHistoryPanel
+          revisions={revisions}
+          revisionTablePage={revisionTablePage}
+          setRevisionTablePage={setRevisionTablePage}
+          expandedRevisionId={expandedRevisionId}
+          setExpandedRevisionId={setExpandedRevisionId}
+          onViewSnapshot={setSnapshotModalEntry}
+        />
+      </section>
+      ) : null}
+
+      {!snapshotEmbedded ? (
+        <RequirementDocSnapshotModal
+          entry={snapshotModalEntry}
+          onClose={() => setSnapshotModalEntry(null)}
+        />
+      ) : null}
 
       {showSubmitModal && (
         <div className="fixed inset-0 z-[140] flex items-center justify-center px-4">
@@ -1849,91 +2149,221 @@ export function RequirementsDoc({
         </div>
       )}
 
-      <div className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur border-t border-gray-100 z-40">
-        <div className="max-w-6xl mx-auto px-5 md:px-10 py-4 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-end">
-          <div className="flex gap-3">
-            {onShowHistory && (
+      {showNoChangesModal && (
+        <div className="fixed inset-0 z-[145] flex items-center justify-center px-4">
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/40 cursor-default"
+            aria-label="关闭"
+            onClick={() => setShowNoChangesModal(false)}
+          />
+          <div className="relative w-full max-w-sm bg-white rounded-3xl shadow-2xl p-6 space-y-4 border border-gray-100">
+            <h3 className="text-base font-semibold text-gray-900">没有做任何更新</h3>
+            <p className="text-sm text-gray-600 leading-relaxed">
+              与进入编辑时相比，需求书内容没有变化。您可继续修改，或直接退出编辑。
+            </p>
+            <div className="flex flex-col gap-2 pt-1">
               <button
                 type="button"
-                onClick={onShowHistory}
-                className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-5 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
+                onClick={() => setShowNoChangesModal(false)}
+                className="w-full py-3 rounded-2xl bg-[#EF6B00] text-white text-sm font-semibold hover:bg-[#D85F00] transition-colors"
               >
-                <History size={18} />
-                历史记录
+                继续编辑
               </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowNoChangesModal(false)
+                  setIsEditing(false)
+                }}
+                className="w-full py-3 rounded-2xl border border-gray-200 bg-white text-sm font-semibold text-gray-800 hover:bg-gray-50 transition-colors"
+              >
+                退出编辑
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showFinishRevisionModal && (
+        <div className="fixed inset-0 z-[145] flex items-center justify-center px-4">
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/40 cursor-default"
+            aria-label="关闭"
+            onClick={() => setShowFinishRevisionModal(false)}
+          />
+          <div className="relative w-full max-w-md bg-white rounded-3xl shadow-2xl p-6 space-y-4 max-h-[90vh] overflow-y-auto border border-gray-100">
+            <h3 className="text-base font-semibold text-gray-900">完成编辑</h3>
+            <p className="text-sm text-gray-600 leading-relaxed">
+              将保存修改并写入「需求变更与修订记录」。变更概要已自动识别，可按需微调。
+            </p>
+            <div className="space-y-3 text-sm">
+              <div>
+                <span className="text-xs text-gray-500 block mb-1">日期（自动）</span>
+                <span className="font-medium text-gray-800">
+                  {(() => {
+                    const n = new Date()
+                    return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`
+                  })()}
+                </span>
+              </div>
+              <div>
+                <label className="text-xs text-gray-500 block mb-1" htmlFor="rev-updater">
+                  更新人
+                </label>
+                <input
+                  id="rev-updater"
+                  value={revisionUpdaterInput}
+                  onChange={(e) => setRevisionUpdaterInput(e.target.value)}
+                  className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm"
+                  placeholder="姓名或角色"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-gray-500 block mb-1" htmlFor="rev-summary">
+                  变更概要（已根据本次修改自动识别）
+                </label>
+                <p className="text-[11px] text-gray-400 mb-1.5 leading-snug">
+                  对比「点击编辑时」已保存内容与当前内容，列出变更模块；可微调下方文字。
+                </p>
+                <textarea
+                  id="rev-summary"
+                  value={revisionSummaryInput}
+                  onChange={(e) => setRevisionSummaryInput(e.target.value)}
+                  rows={3}
+                  className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm resize-y min-h-[72px] bg-[#FAFAF9]"
+                  readOnly={false}
+                  placeholder="自动生成中…"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-gray-500 block mb-1" htmlFor="rev-section">
+                  涉及章节 / 备注（已自动填入变更模块，可改）
+                </label>
+                <input
+                  id="rev-section"
+                  value={revisionSectionNoteInput}
+                  onChange={(e) => setRevisionSectionNoteInput(e.target.value)}
+                  className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm"
+                  placeholder="自动根据变更模块生成"
+                />
+              </div>
+            </div>
+            <div className="flex flex-col gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => confirmSaveRequirementWithRevision()}
+                className="w-full py-3 rounded-2xl bg-[#EF6B00] text-white text-sm font-semibold hover:bg-[#D85F00] transition-colors"
+              >
+                {mergeSaveAndPublish ? '确认修改并发布至Home端' : '确认保存并记录修订'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowFinishRevisionModal(false)}
+                className="w-full py-2.5 text-sm text-gray-500 hover:text-gray-800"
+              >
+                取消，继续编辑
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {!snapshotEmbedded ? (
+      <div className="fixed bottom-0 left-0 right-0 z-30 bg-white/90 backdrop-blur border-t border-gray-100">
+        <div className="max-w-6xl mx-auto px-5 md:px-10 py-4 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+          <div className="text-xs text-gray-500 line-clamp-2">
+            {revisions[0] ? (
+              <>
+                最后修订：<span className="text-gray-700">{revisions[0].date}</span>
+              </>
+            ) : (
+              <>有变更并完成编辑后，将自动记录修订，最新信息将显示在此处。</>
             )}
-
-            <button
-              type="button"
-              onClick={() => {
-                if (isEditing && updateData) {
-                  const smartLabels = smartHomeOptions.filter((o) => smartHomeSelected[o.key]).map((o) => o.label)
-                  const deviceLabels = specialDeviceOptions.filter((o) => specialDeviceSelected[o.key]).map((o) => o.label)
-                  updateData({
-                    smartHomeOptions: smartLabels,
-                    devices: deviceLabels,
-                    otherNeeds: customNeedsNote.trim() || (d?.otherNeeds ?? ''),
-                    comfortSystems: comfortSystemsEdit,
-                    fengshui: fengshuiEdit.trim(),
-                    storageFocus: storageFocusEdit,
-                    spaceOtherNote: spaceOtherNote.trim(),
-                    livingRoomNote: livingRoomNoteEdit,
-                    diningNote: diningNoteEdit,
-                    kitchenNote: kitchenNoteEdit,
-                    bathroomNote: bathroomNoteEdit,
-                    projectLocation: projectLocationEdit,
-                    projectType: projectTypeEdit,
-                    projectArea: projectAreaEdit,
-                    budgetStandard: budgetStandardEdit,
-                    timeline: timelineEdit,
-                    houseUsage: houseUsageEdit,
-                    lighting: lightingEdit,
-                    ventilation: ventilationEdit,
-                    ceilingHeight: ceilingHeightEdit,
-                    noise: noiseEdit,
-                    coreSpaces: coreSpacesEdit,
-                    customCoreSpaceOptions: d?.customCoreSpaceOptions ?? [],
-                    childGrowth: childGrowthEdit,
-                    guestStay: guestStayEdit,
-                    futureChanges: futureChangesEdit,
-                    requirementsMembers: membersEdit,
-                    floorPlanImages: planImages,
-                    siteMedia: mediaFiles,
-                    customSpaceItems: customSpaceItemsEdit,
-                  })
-                  onSave?.()
-                }
-                if (!isEditing) {
-                  onSetCustomerStatus?.('unread')
-                }
-                setIsEditing(!isEditing)
-              }}
-              className={`flex-1 sm:flex-none inline-flex items-center justify-center gap-2 rounded-2xl px-5 py-3 text-sm font-semibold transition-colors ${
-                isEditing ? 'bg-gray-900 text-white hover:bg-gray-800' : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50'
-              }`}
-            >
-              {isEditing ? <Save size={18} /> : <Edit2 size={18} />}
-              {isEditing ? '保存修改' : '编辑内容'}
-            </button>
-
-            {onPublish && (
-              <button
-                type="button"
-                onClick={onPublish}
-                disabled={!hasUnpublishedChanges}
-                className={`flex-1 sm:flex-none inline-flex items-center justify-center gap-2 rounded-2xl px-5 py-3 text-sm font-semibold transition-all ${
-                  !hasUnpublishedChanges
-                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                    : 'bg-[#EF6B00] text-white hover:bg-[#E65100]'
-                }`}
-              >
-                <Send size={18} />
-                {!hasUnpublishedChanges ? '暂无修改内容' : '发布至 Home 端'}
-              </button>
+          </div>
+          <div className="flex gap-3">
+            {isEditing ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    baselineFingerprintRef.current = null
+                    setShowFinishRevisionModal(false)
+                    setShowNoChangesModal(false)
+                    setIsEditing(false)
+                  }}
+                  className="flex-1 sm:flex-none inline-flex items-center justify-center rounded-2xl border border-gray-200 bg-white px-5 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  取消编辑
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (updateData && d) {
+                      const edits = buildRequirementDocEditsPayload()
+                      const fullAfterPayload = requirementPayloadFromFormData({
+                        ...d,
+                        ...edits,
+                      } as import('../types').FormData)
+                      const fpAfter = fingerprintRequirementDocPayload(fullAfterPayload)
+                      const beforeFp =
+                        baselineFingerprintRef.current ?? fingerprintFromSavedFormData(d)
+                      const labels = diffRequirementDocFingerprints(beforeFp, fpAfter)
+                      if (labels.length === 0) {
+                        setShowNoChangesModal(true)
+                      } else {
+                        setRevisionUpdaterInput(ownerDisplayName)
+                        setRevisionSummaryInput(formatAutoRevisionSummary(labels))
+                        setRevisionSectionNoteInput(labels.join('、'))
+                        setShowFinishRevisionModal(true)
+                      }
+                    }
+                  }}
+                  className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 rounded-2xl px-5 py-3 text-sm font-semibold bg-[#EF6B00] text-white hover:bg-[#D85F00] transition-colors"
+                  title="完成编辑"
+                >
+                  完成编辑
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (updateData && d) {
+                      setRequirementsDocPage('content')
+                    }
+                    onSetCustomerStatus?.('unread')
+                    setIsEditing(true)
+                  }}
+                  className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 rounded-2xl bg-[#EF6B00] px-6 py-3 text-sm font-bold text-white hover:bg-[#CC5B00] transition-colors shadow-sm"
+                  title="编辑需求书"
+                >
+                  <Edit2 size={18} />
+                  编辑
+                </button>
+                {onPublish && !mergeSaveAndPublish && (
+                  <button
+                    type="button"
+                    onClick={() => onPublish()}
+                    disabled={!hasUnpublishedChanges}
+                    className={`flex-1 sm:flex-none inline-flex items-center justify-center gap-2 rounded-2xl px-5 py-3 text-sm font-semibold transition-all ${
+                      !hasUnpublishedChanges
+                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                        : 'bg-[#EF6B00] text-white hover:bg-[#E65100]'
+                    }`}
+                  >
+                    <Send size={18} />
+                    {!hasUnpublishedChanges ? '暂无修改内容' : '发布至 Home 端'}
+                  </button>
+                )}
+              </>
             )}
           </div>
         </div>
       </div>
+      ) : null}
     </div>
   )
 }
@@ -1961,3 +2391,69 @@ function TabPill({ active, onClick, children }: { active: boolean; onClick: () =
   )
 }
 
+function RequirementDocSnapshotModal({
+  entry,
+  onClose,
+}: {
+  entry: RequirementDocRevisionEntry | null
+  onClose: () => void
+}) {
+  if (!entry) return null
+  const fd = parseDocSnapshotJson(entry.docSnapshotJson)
+  if (!fd) {
+    return createPortal(
+      <div className="fixed inset-0 z-[10050] flex items-center justify-center px-4">
+        <button
+          type="button"
+          className="absolute inset-0 bg-neutral-950/75 backdrop-blur-[3px]"
+          aria-label="关闭"
+          onClick={onClose}
+        />
+        <div className="relative z-[1] max-w-sm rounded-3xl bg-white p-6 shadow-2xl border border-gray-100">
+          <p className="text-sm text-gray-700 leading-relaxed">
+            该条为旧版存档，无完整版面快照。请在新修订保存后查看。
+          </p>
+          <button
+            type="button"
+            onClick={onClose}
+            className="mt-4 w-full py-2.5 rounded-2xl bg-gray-900 text-white text-sm font-semibold"
+          >
+            关闭
+          </button>
+        </div>
+      </div>,
+      document.body,
+    )
+  }
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[10050] flex justify-center overflow-y-auto overflow-x-hidden bg-neutral-950/72 backdrop-blur-[4px] py-4 px-2 sm:px-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label="需求书快照"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose()
+      }}
+    >
+      <div
+        className="w-full max-w-6xl flex flex-col rounded-3xl bg-[#FFFDF3] shadow-[0_25px_80px_rgba(0,0,0,0.35)] border border-stone-200/90 overflow-hidden min-h-[min(88vh,820px)] max-h-[min(94vh,900px)] my-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-3 sm:px-5 py-4">
+          <RequirementsDoc
+            key={entry.id}
+            snapshotEmbedded
+            snapshotOnClose={onClose}
+            snapshotRevisionLabel={`${entry.date} · ${entry.updater}`}
+            data={fd}
+            projectName={(fd.projectName || fd.projectLocation || '项目').trim() || '项目'}
+            ownerDisplayName={(fd.ownerName || (fd as { userName?: string }).userName || '业主').trim() || '业主'}
+            houseUsage={fd.houseUsage}
+            onBackHome={onClose}
+          />
+        </div>
+      </div>
+    </div>,
+    document.body,
+  )
+}

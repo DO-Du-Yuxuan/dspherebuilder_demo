@@ -13,6 +13,7 @@ import OverviewPage from './pages/OverviewPage';
 import EditorPage from './pages/EditorPage';
 import QuotationPage from './pages/QuotationPage';
 import SettlementPage from './pages/SettlementPage';
+import OrderRedirect from './pages/OrderRedirect';
 import { Toaster } from 'sonner';
 import { OrderVersion, QuotationVersion, SettlementVersion } from './types';
 const INITIAL_MOCK_VERSIONS: OrderVersion[] = [
@@ -359,6 +360,7 @@ export default function App() {
         <Route path="/projects" element={<ProjectSelectionPage />} />
         <Route path="/project-requirements" element={<ProjectRequirementsPage />} />
         <Route path="/orders" element={<OrderSelectionPage />} />
+        <Route path="/order/:id" element={<OrderRedirect />} />
         <Route 
           path="/overview" 
           element={

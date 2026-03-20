@@ -2,21 +2,14 @@ import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { tokens } from '../design-tokens';
 import { ROUTES } from '../utils/constants';
-import { History, Clock, ArrowLeft } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { Header } from '../components/Header';
 import { getCurrentUser, logout } from '../utils/authUtils';
 import { RequirementsDoc } from '../components/RequirementsDoc';
-import { FormData } from '../types';
+import { FormData, RequirementDocRevisionEntry } from '../types';
+import { buildRevisionSnapshotFormData } from '../utils/requirementDocRevisionSnapshot';
+import { formatRequirementPayloadAsDetail, requirementPayloadFromFormData } from '../utils/requirementRevisionDiff';
 import { toast } from 'sonner';
-
-interface HistoryLog {
-  id: string;
-  action: 'publish' | 'edit';
-  user: string;
-  time: string;
-  desc: string;
-  details?: string;
-}
 
 // Initial Mock Data based on the original "Showcase" example
 const INITIAL_MOCK_DATA: FormData = {
@@ -55,8 +48,21 @@ const INITIAL_MOCK_DATA: FormData = {
   bathroomNote: '主卫需要浴缸。',
 };
 
-// Mock History Data
-// (Removed in favor of dynamic history state)
+// 初始化一条修订记录示例
+const createInitialRevision = (): RequirementDocRevisionEntry => {
+  const base = { ...INITIAL_MOCK_DATA, requirementDocRevisions: [] };
+  const snapshot = buildRevisionSnapshotFormData(base as FormData, {});
+  const payload = requirementPayloadFromFormData(base as FormData);
+  return {
+    id: 'rev-init',
+    date: '2026-03-18',
+    updater: '系统',
+    summary: '初始化需求书',
+    sectionNote: '项目概览、成员画像、空间需求',
+    docSnapshotJson: JSON.stringify({ v: 2, formData: snapshot }),
+    changeDetailAfter: formatRequirementPayloadAsDetail(payload),
+  };
+};
 
 export default function ProjectRequirementsPage() {
   const navigate = useNavigate();
@@ -64,56 +70,26 @@ export default function ProjectRequirementsPage() {
   const user = getCurrentUser();
   const project = location.state?.project || { name: '龙湖璟宸府(示例项目)', code: 'PRJT_R-049-T4-LHJCF' };
 
-  const [formData, setFormData] = useState<FormData>({ ...INITIAL_MOCK_DATA, customerStatus: 'unread' });
-  const [publishedData, setPublishedData] = useState<FormData>({ ...INITIAL_MOCK_DATA, customerStatus: 'unread' });
+  const initialWithRevisions = {
+    ...INITIAL_MOCK_DATA,
+    customerStatus: 'unread' as const,
+    requirementDocRevisions: [createInitialRevision()],
+  };
+  const [formData, setFormData] = useState<FormData>(initialWithRevisions);
+  const [publishedData, setPublishedData] = useState<FormData>(initialWithRevisions);
   const [isPublished, setIsPublished] = useState(false);
-  const [showHistory, setShowHistory] = useState(false);
   const [hasUnpublishedChanges, setHasUnpublishedChanges] = useState(false);
   const [lastUpdated, setLastUpdated] = useState('2026-03-18 10:00');
-  const [history, setHistory] = useState<HistoryLog[]>([
-    { id: '1', action: 'publish', user: '系统', time: '2026-03-18 10:00', desc: '初始化需求书' },
-  ]);
-  const [pendingChanges, setPendingChanges] = useState<string[]>([]);
-
-  const getFieldLabel = (key: string): string => {
-    const labels: Record<string, string> = {
-      projectName: '项目名称',
-      ownerName: '业主姓名',
-      houseUsage: '房屋用途',
-      budgetStandard: '预算范围',
-      projectArea: '实际面积',
-      timeline: '入住周期',
-      lighting: '采光',
-      ventilation: '通风',
-      ceilingHeight: '层高',
-      noise: '噪音',
-      coreSpaces: '核心空间',
-      otherNeeds: '其他需求',
-      livingRoomNote: '客厅备注',
-      diningNote: '餐厅备注',
-      kitchenNote: '厨房备注',
-      bathroomNote: '卫生间备注',
-    };
-    return labels[key] || key;
-  };
 
   const handleUpdateData = (partial: Partial<FormData>) => {
-    const changes: string[] = [];
-    Object.keys(partial).forEach(key => {
+    const hasChanges = Object.keys(partial).some(key => {
       const k = key as keyof FormData;
-      if (JSON.stringify(formData[k]) !== JSON.stringify(partial[k])) {
-        changes.push(getFieldLabel(k));
-      }
+      return JSON.stringify(formData[k]) !== JSON.stringify(partial[k]);
     });
-
-    if (changes.length > 0) {
+    if (hasChanges) {
       setFormData(prev => ({ ...prev, ...partial }));
       setHasUnpublishedChanges(true);
       setLastUpdated(new Date().toLocaleString('zh-CN', { hour12: false }).replace(/\//g, '-'));
-      setPendingChanges(prev => {
-        const newSet = new Set([...prev, ...changes]);
-        return Array.from(newSet);
-      });
     }
   };
 
@@ -122,39 +98,19 @@ export default function ProjectRequirementsPage() {
       // Revert to last published version and set status to rejected
       setFormData({ ...publishedData, customerStatus: 'rejected' });
       setHasUnpublishedChanges(false);
-      setPendingChanges([]);
       toast.info('客户已拒绝，内容已恢复至上个发布版本');
     } else {
       setFormData(prev => ({ ...prev, customerStatus: status }));
     }
   };
 
-  const handlePublish = () => {
-    if (!hasUnpublishedChanges) {
-      toast.error('内容未发生变更，无需发布');
-      return;
-    }
-
+  /** 仅执行发布逻辑（同步至 Home），不新增修订记录。用于「确认修改并发布至Home端」合并流程 */
+  const handlePublishOnly = (dataToPublish?: FormData) => {
     const now = new Date().toLocaleString('zh-CN', { hour12: false }).replace(/\//g, '-');
     setIsPublished(true);
     setHasUnpublishedChanges(false);
-    
-    const updatedData: FormData = { ...formData, customerStatus: 'unread' };
-    setFormData(updatedData);
-    setPublishedData(updatedData);
+    setPublishedData(dataToPublish ?? formData);
     setLastUpdated(now);
-
-    // Add to history
-    const newLog: HistoryLog = {
-      id: Date.now().toString(),
-      action: 'publish',
-      user: user.name || user.username,
-      time: now,
-      desc: '发布了新版本至 Home 端',
-      details: pendingChanges.length > 0 ? `修改内容: ${pendingChanges.join(', ')}` : undefined
-    };
-    setHistory(prev => [newLog, ...prev]);
-    setPendingChanges([]);
     toast.success('发布成功');
   };
 
@@ -178,12 +134,12 @@ export default function ProjectRequirementsPage() {
         <div className="overflow-hidden">
           <RequirementsDoc 
             projectName={project.name}
-            ownerDisplayName={formData.ownerName || '用户'}
+            ownerDisplayName="杜宇轩"
             data={formData}
             updateData={handleUpdateData}
             onBackHome={() => navigate(ROUTES.PROJECTS)}
-            onShowHistory={() => setShowHistory(true)}
-            onPublish={handlePublish}
+            onPublish={handlePublishOnly}
+            mergeSaveAndPublish
             onSave={() => setHasUnpublishedChanges(true)}
             isPublished={isPublished}
             hasUnpublishedChanges={hasUnpublishedChanges}
@@ -193,59 +149,6 @@ export default function ProjectRequirementsPage() {
           />
         </div>
       </main>
-
-      {/* History Drawer/Modal */}
-      {showHistory && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-black/20 backdrop-blur-sm transition-opacity">
-          <div className="w-full max-w-md bg-white h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
-            <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100">
-              <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                <History className="w-5 h-5 text-[#EF6B00]" />
-                修改历史记录
-              </h2>
-              <button 
-                onClick={() => setShowHistory(false)}
-                className="text-gray-400 hover:text-gray-600 transition-colors p-2 rounded-lg hover:bg-gray-50"
-              >
-                关闭
-              </button>
-            </div>
-            
-            <div className="flex-1 overflow-y-auto p-6">
-              <div className="relative border-l-2 border-gray-100 ml-3 space-y-8">
-                {history.map((log) => (
-                  <div key={log.id} className="relative pl-6">
-                    {/* Timeline dot */}
-                    <div className={`absolute -left-[9px] top-1 w-4 h-4 rounded-full border-2 border-white ${
-                      log.action === 'publish' ? 'bg-emerald-500' : 'bg-blue-500'
-                    }`} />
-                    
-                    <div className="flex flex-col gap-1">
-                      <div className="flex items-center gap-2 text-sm">
-                        <span className="font-semibold text-gray-900">{log.user}</span>
-                        <span className="text-gray-500 text-xs flex items-center gap-1">
-                          <Clock className="w-3 h-3" />
-                          {log.time}
-                        </span>
-                      </div>
-                      <div className={`text-sm mt-1 p-3 rounded-xl ${
-                        log.action === 'publish' 
-                          ? 'bg-emerald-50 text-emerald-800 border border-emerald-100' 
-                          : 'bg-gray-50 text-gray-700 border border-gray-100'
-                      }`}>
-                        <div className="font-medium">{log.desc}</div>
-                        {log.details && (
-                          <div className="mt-1 text-xs opacity-80">{log.details}</div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
